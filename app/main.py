@@ -5,6 +5,8 @@ sys.path.append(os.getcwd())
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import router
+from app.api.state import router as state_router
+from app.api.command import router as command_router
 from app.utils.logger import logger
 
 app = FastAPI(
@@ -26,6 +28,8 @@ def root():
     return {"status": "OK"}
 
 app.include_router(router, tags=["chat"])
+app.include_router(state_router, tags=["state"])
+app.include_router(command_router, tags=["command"])
 
 from fastapi import WebSocket, WebSocketDisconnect
 from app.core.ws_manager import ws_manager

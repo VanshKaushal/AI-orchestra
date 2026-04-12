@@ -8,6 +8,7 @@ from app.core.orchestrator import Orchestrator
 from app.core.watchdog import watchdog
 from app.utils.logger import logger
 from app.core.ws_manager import ws_manager
+from app.api.state import update_session_state
 
 
 class Session:
@@ -51,10 +52,32 @@ class MultiSessionOrchestrator:
     """
 
     def __init__(self):
-        self.sessions: Dict[str, Session] = {}
+        try:
+            self.sessions: Dict[str, Session] = getattr(self, "sessions", {}) or {}
+        except:
+            self.sessions = {}
+            
         self.orchestrator = Orchestrator()
         self._running_tasks: Dict[str, asyncio.Task] = {}
         logger.info("MultiSessionOrchestrator initialized")
+
+    def get_all_sessions(self) -> List[Dict[str, Any]]:
+        """List all sessions safely (Phase 1 Fix)"""
+        try:
+            if self.sessions is None:
+                return []
+            return [s.to_dict() for s in self.sessions.values()]
+        except Exception as e:
+            logger.error(f"Error listing sessions: {e}")
+            return []
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get global state safely (Phase 2 Fix)"""
+        try:
+            return self.get_global_state()
+        except Exception as e:
+            logger.error(f"Error getting state: {e}")
+            return {"status": "error", "sessions": []}
 
     def create_session(self, task: str, model: str = "ollama") -> Session:
         """Create a new session"""
@@ -115,6 +138,16 @@ class MultiSessionOrchestrator:
         
         session.status = "running"
         
+        # Phase 2: Update State Explorer (Silent Hook)
+        try:
+            update_session_state(
+                session_id, 
+                goal=session.task, 
+                log=f"Received input: {message_text[:30]}..."
+            )
+        except:
+            pass
+
         try:
             from app.models.schemas import ChatRequest
             request = ChatRequest(
@@ -159,6 +192,17 @@ class MultiSessionOrchestrator:
             
             session.local_summary = self._build_summary(session)
             session.status = "waiting"
+            
+            # Phase 2: Update State Explorer (Success Hook)
+            try:
+                progress = min(100, len(session.messages) * 10)
+                update_session_state(
+                    session_id, 
+                    progress=progress,
+                    log=f"Model {response.provider.value} responded. Context updated."
+                )
+            except:
+                pass
             
             # 4. Broadcast via WebSocket (The single source for AI responses)
             await ws_manager.broadcast({

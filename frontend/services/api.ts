@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://127.0.0.1:8000";
+const BASE_URL = "/api";
 
 export const API = axios.create({
   baseURL: BASE_URL,
@@ -45,5 +45,6 @@ export const switchModel = (sessionId: string, model: string) =>
     model,
   });
 
-export const runCommand = (command: string) =>
-  API.post("/command", { command });
+export const runCommand = async (command: string) => {
+  return API.post("/command", { command });
+};

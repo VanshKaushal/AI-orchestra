@@ -1,12 +1,16 @@
 import { Terminal, Rocket, CheckSquare } from "lucide-react";
 import { runCommand } from "../services/api";
+import toast from "react-hot-toast";
 
 export default function CommandPanel() {
-  const handleCommand = async (command: string) => {
+  const handleCommand = async (cmd: string) => {
     try {
-      await runCommand(command).catch(() => {});
+      const res = await runCommand(cmd);
+      console.log("Command Success:", res.data);
+      alert(res.data.output);
     } catch (err) {
-      console.error(`Failed to run ${command}`, err);
+      console.error("Command Failed:", err);
+      alert("Failed to execute " + cmd);
     }
   };
 
