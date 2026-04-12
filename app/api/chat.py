@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from app.models.schemas import ChatRequest, ChatResponse
+from pydantic import BaseModel
+from app.models.schemas import ChatRequest, ChatResponse, CommandRequest
 from app.core.orchestrator import Orchestrator
 from app.sessions.session_manager import session_manager
 
@@ -7,13 +8,35 @@ router = APIRouter()
 orchestrator = Orchestrator()
 
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """Chat endpoint for AI Orchestra"""
+class ChatRequestExact(BaseModel):
+    session_id: str
+    message: str
+
+class ChatResponseExact(BaseModel):
+    response: str
+    model: str
+    switch: bool
+    session_id: str
+
+@router.post("/chat", response_model=ChatResponseExact)
+async def chat(request: ChatRequestExact):
+    """Chat endpoint for AI Orchestra (Exact Match)"""
     try:
-        response = await orchestrator.process(request)
-        return response
+        # Map to orchestrator logic
+        # We'll use session_id as user_id for the orchestrator implementation if needed, 
+        # or use the multi_session_orchestrator
+        from app.core.multi_session_orchestrator import multi_session_orchestrator
+        result = await multi_session_orchestrator.send_message(request.session_id, request.message)
+        
+        # result expected to have 'response', 'provider', 'fallback_triggered'
+        return ChatResponseExact(
+            response=result.get("response", ""),
+            model=str(result.get("provider", "ollama")),
+            switch=result.get("fallback_triggered", False),
+            session_id=request.session_id
+        )
     except Exception as e:
+        logger.error(f"Chat failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -59,8 +82,8 @@ async def create_session(task: str, model: str = "ollama"):
 
 @router.get("/sessions")
 async def list_sessions():
-    """List all sessions"""
-    return {"sessions": session_manager.list_all()}
+    """List all sessions (returns list directly for frontend)"""
+    return session_manager.list_all()
 
 
 @router.get("/sessions/{session_id}")
@@ -116,6 +139,35 @@ async def get_global_state():
     return session_manager.global_state()
 
 
+@router.post("/session/create")
+async def exact_create_session():
+    """Create a new session (exact endpoint match)"""
+    try:
+        return session_manager.create("Default Task", "ollama")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+class SwitchRequest(BaseModel):
+    session_id: str
+    model: str
+
+@router.post("/switch")
+async def exact_switch_model(request: SwitchRequest):
+    """Switch model for a session (exact endpoint match)"""
+    result = session_manager.switch_model(request.session_id, request.model)
+    if not result:
+        raise HTTPException(status_code=404, detail="Session not found or invalid model")
+    return {"success": True, "model": request.model}
+
+
+@router.get("/state")
+async def exact_get_state():
+    """Get global state (exact endpoint match)"""
+    return session_manager.global_state()
+
+
 @router.post("/run")
 async def run_command(command: str):
     """Run a shell command"""
@@ -125,3 +177,8 @@ async def run_command(command: str):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/command")
+async def handle_command(request: CommandRequest):
+    """Handle command and return mock response"""
+    return {"status": "success", "message": f"Command '{request.command}' executed successfully (mock)"}

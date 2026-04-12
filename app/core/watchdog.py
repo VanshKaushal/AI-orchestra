@@ -10,9 +10,10 @@ class Watchdog:
     This keeps AI sessions running continuously without pausing for user confirmation.
     """
 
-    def __init__(self):
+    def __init__(self, max_iterations: int = 5):
         self.rules: List[Dict] = self._build_default_rules()
         self.handlers: Dict[str, Callable] = {}
+        self.max_iterations = max_iterations
 
     def _build_default_rules(self) -> List[Dict]:
         """Build default auto-answer rules"""
@@ -110,11 +111,22 @@ class Watchdog:
         
         return None
 
-    def process_response(self, response: str, context: Optional[Dict] = None) -> Dict:
+    def process_response(self, response: str, context: Optional[Dict] = None, iteration: int = 0) -> Dict:
         """Process response and return modified response + auto-answer if applicable"""
         has_question = self.detect_question(response)
         auto_answer = None
         
+        # Safety: check if we've exceeded max iterations
+        if iteration >= self.max_iterations:
+            logger.warning(f"Watchdog reached max iterations ({self.max_iterations}). Forcing user input.")
+            return {
+                "original_response": response,
+                "has_question": has_question,
+                "auto_answer": None,
+                "requires_user_input": True,
+                "limit_reached": True
+            }
+
         if has_question:
             auto_answer = self.get_auto_answer(response, context)
         
@@ -122,7 +134,8 @@ class Watchdog:
             "original_response": response,
             "has_question": has_question,
             "auto_answer": auto_answer,
-            "requires_user_input": auto_answer is None and has_question
+            "requires_user_input": auto_answer is None and has_question,
+            "limit_reached": False
         }
 
     def should_continue(self, response: str) -> bool:

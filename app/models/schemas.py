@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import uuid
+import time
 from enum import Enum
 
 
@@ -19,9 +21,11 @@ class LLMProvider(str, Enum):
 
 
 class Message(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str = "default"
     role: MessageRole
     content: str
-    timestamp: datetime = Field(default_factory=datetime.now)
+    timestamp: float = Field(default_factory=time.time)
     provider: Optional[LLMProvider] = None
     tokens_used: Optional[int] = None
     cost: Optional[float] = None
@@ -65,3 +69,7 @@ class UsageStats(BaseModel):
     total_cost: float = 0.0
     failures: int = 0
     success_count: int = 0
+
+
+class CommandRequest(BaseModel):
+    command: str

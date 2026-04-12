@@ -1,11 +1,13 @@
 import asyncio
 import uuid
+import time
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from app.models.schemas import LLMProvider
+from app.models.schemas import LLMProvider, Message, MessageRole
 from app.core.orchestrator import Orchestrator
 from app.core.watchdog import watchdog
 from app.utils.logger import logger
+from app.core.ws_manager import ws_manager
 
 
 class Session:
@@ -67,6 +69,16 @@ class MultiSessionOrchestrator:
         self.sessions[session_id] = session
         
         logger.info(f"Created session {session_id}: {task}")
+        asyncio.create_task(ws_manager.broadcast({
+            "type": "session_created",
+            "data": session.to_dict()
+        }))
+        # Also broadcast global state update
+        asyncio.create_task(ws_manager.broadcast({
+            "type": "global_state_update",
+            "data": self.get_global_state()
+        }, client_id="global"))
+        
         return session
 
     def get_session(self, session_id: str) -> Optional[Session]:
@@ -93,7 +105,7 @@ class MultiSessionOrchestrator:
     async def send_message(
         self,
         session_id: str,
-        message: str,
+        message_text: str,
         use_watchdog: bool = True
     ) -> Dict[str, Any]:
         """Send a message to a session and get response"""
@@ -106,44 +118,66 @@ class MultiSessionOrchestrator:
         try:
             from app.models.schemas import ChatRequest
             request = ChatRequest(
-                message=message,
+                message=message_text,
                 user_id=f"session_{session_id}",
                 force_provider=session.model
             )
             
+            # 1. Create User Message Object
+            user_msg = Message(
+                session_id=session_id,
+                role=MessageRole.USER,
+                content=message_text
+            )
+            session.messages.append(user_msg.dict())
+            
+            # 2. Process with Orchestrator
             response = await self.orchestrator.process(request)
             
-            session.messages.append({
-                "role": "user",
-                "content": message,
-                "timestamp": datetime.now().isoformat()
-            })
-            
-            final_response = response.response
+            final_response_text = response.response
             auto_answer = None
             
             if use_watchdog:
                 wd_result = watchdog.process_response(response.response)
                 if wd_result["auto_answer"]:
                     auto_answer = wd_result["auto_answer"]
-                    final_response = watchdog.inject_answer(
+                    final_response_text = watchdog.inject_answer(
                         response.response,
                         auto_answer
                     )
             
-            session.messages.append({
-                "role": "assistant",
-                "content": final_response,
-                "timestamp": datetime.now().isoformat(),
-                "provider": response.provider.value,
-                "auto_answer": auto_answer
-            })
+            # 3. Create Assistant Message Object
+            assistant_msg = Message(
+                session_id=session_id,
+                role=MessageRole.ASSISTANT,
+                content=final_response_text,
+                provider=response.provider,
+                tokens_used=response.tokens_used,
+                cost=response.cost
+            )
+            session.messages.append(assistant_msg.dict())
             
             session.local_summary = self._build_summary(session)
             session.status = "waiting"
             
+            # 4. Broadcast via WebSocket (The single source for AI responses)
+            await ws_manager.broadcast({
+                "type": "message",
+                "session_id": session_id,
+                "data": assistant_msg.dict()
+            }, client_id=session_id)
+            
+            if auto_answer:
+                await ws_manager.broadcast({
+                    "type": "watchdog_log",
+                    "session_id": session_id,
+                    "data": {"log": f"Watchdog auto-answered: {auto_answer}"}
+                }, client_id=session_id)
+            
+            # 5. Return response for REST (Frontend will use this as fallback)
             return {
-                "response": final_response,
+                "message_id": assistant_msg.id,
+                "response": final_response_text,
                 "provider": response.provider.value,
                 "auto_answer": auto_answer,
                 "session": session.to_dict()
@@ -182,6 +216,11 @@ class MultiSessionOrchestrator:
         try:
             session.model = LLMProvider(model)
             logger.info(f"Session {session_id} switched to {model}")
+            asyncio.create_task(ws_manager.broadcast({
+                "type": "model_switched",
+                "session_id": session_id,
+                "data": {"model": model}
+            }, client_id=session_id))
             return True
         except ValueError:
             logger.warning(f"Invalid model: {model}")

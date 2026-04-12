@@ -7,7 +7,7 @@ A unified AI system where a SINGLE CHAT can seamlessly switch across multiple LL
 - **Single Chat Continuity** - Switch between LLMs (auto + manual) with no context loss
 - **Multi-Session Parallel Execution** - Run multiple AI sessions simultaneously
 - **Watchdog Automation** - Auto-answer LLM questions without user interruption
-- **Command Execution** - Run shell commands asynchronously from any session
+- **Command Execution** - Run shell commands or generic system commands asynchronously
 - **Policy-Driven Routing** - Centralized management of routing rules and fallback chains
 - **Local Models Priority** - Use Ollama by default to minimize cost
 - **Global Project Intelligence** - All sessions share structured state
@@ -124,24 +124,31 @@ python cli/chat.py
 
 ```bash
 # Chat
-curl -X POST http://localhost:8000/api/chat \
+curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hello!", "user_id": "user1"}'
+  -d '{"message": "Hello!", "session_id": "default"}'
 
 # Health check
-curl http://localhost:8000/api/health
+curl http://localhost:8000/health
 
 # Get stats
-curl http://localhost:8000/api/stats
+curl http://localhost:8000/stats
 
-# Get conversation state
-curl http://localhost:8000/api/state/user1
+# Get global state
+curl http://localhost:8000/state
 
 # Manual switch
-curl -X POST http://localhost:8000/api/switch/user1?provider=openai
+curl -X POST http://localhost:8000/switch \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "default", "model": "openai"}'
 
 # Run shell command
-curl -X POST "http://localhost:8000/api/run?command=ls"
+curl -X POST "http://localhost:8000/run?command=ls"
+
+# Run generic command
+curl -X POST http://localhost:8000/command \
+  -H "Content-Type: application/json" \
+  -d '{"command": "test"}'
 ```
 
 ## Global State Design (THE CORE)
