@@ -27,6 +27,10 @@ app.add_middleware(
 def root():
     return {"status": "OK"}
 
+@app.get("/health")
+def health():
+    return {"status": "OK", "version": "1.0.0"}
+
 app.include_router(router, tags=["chat"])
 app.include_router(state_router, tags=["state"])
 app.include_router(command_router, tags=["command"])

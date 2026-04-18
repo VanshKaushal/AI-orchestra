@@ -1,6 +1,7 @@
 import axios from "axios";
+import axiosRetry from "axios-retry";
 
-const BASE_URL = "/api";
+const BASE_URL = "http://127.0.0.1:8000";
 
 export const API = axios.create({
   baseURL: BASE_URL,
@@ -8,6 +9,18 @@ export const API = axios.create({
     "Content-Type": "application/json",
   },
   timeout: 10000,
+});
+
+// Configure axios-retry
+axiosRetry(API, {
+  retries: 3,
+  retryDelay: (retryCount) => {
+    return retryCount * 1000; // Exponential backoff: 1s, 2s, 3s
+  },
+  retryCondition: (error) => {
+    // Retry on network errors or 5xx status codes
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) || (error.response?.status ?? 0) >= 500;
+  },
 });
 
 // TEST FUNCTION

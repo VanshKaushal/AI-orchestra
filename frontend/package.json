@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
+    "export": "next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -15,6 +16,7 @@
   "dependencies": {
     "autoprefixer": "^10.4.27",
     "axios": "^1.15.0",
+    "axios-retry": "^4.5.0",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.8.0",
     "next": "^16.2.3",

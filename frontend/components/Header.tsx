@@ -1,6 +1,7 @@
 import { useStore } from "../store/useStore";
-import { BrainCircuit, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { BrainCircuit, PanelRightClose, PanelRightOpen, HeartPulse } from "lucide-react";
 import ModelSwitcher from "./ModelSwitcher";
+import { testBackend } from "../services/api";
 
 interface HeaderProps {
   rightPanelOpen?: boolean;
@@ -10,10 +11,18 @@ interface HeaderProps {
 export default function Header({ rightPanelOpen, setRightPanelOpen }: HeaderProps) {
   const { activeSessionId } = useStore();
 
+  const handleHealthCheck = async () => {
+    try {
+      const data = await testBackend();
+      console.log("Health Check:", data);
+    } catch (e) {
+      console.error("Health Check Failed:", e);
+    }
+  };
+
   return (
-    <header className="h-[60px] bg-[#0a0a0a] flex items-center justify-between px-6 shrink-0 z-10 w-full relative">
+    <header className="h-[60px] bg-[#0a0a0a] flex items-center justify-between px-6 shrink-0 z-10 w-full relative border-b border-zinc-800/50">
       <div className="flex items-center gap-3">
-        {/* Placeholder if we wanted global menu, we keep simple brand for now */}
         <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
           <BrainCircuit size={18} />
         </div>
@@ -25,15 +34,13 @@ export default function Header({ rightPanelOpen, setRightPanelOpen }: HeaderProp
       <div className="flex items-center gap-3 text-sm">
         {activeSessionId && <ModelSwitcher />}
 
-        <button onClick={async () => {
-          try {
-            const res = await fetch("http://127.0.0.1:8000/");
-            console.log("TEST:", await res.json());
-          } catch(e) {
-            console.error("Test Backend Failed", e);
-          }
-        }} className="bg-red-500/20 text-red-500 px-2 py-1 text-xs font-bold rounded">
-          Test Backend
+        <button 
+          onClick={handleHealthCheck}
+          className="flex items-center gap-2 bg-zinc-900 text-zinc-400 hover:text-emerald-400 px-3 py-1.5 text-xs font-medium rounded-md transition-all border border-zinc-800 hover:border-emerald-500/30"
+          title="Check Backend Health"
+        >
+          <HeartPulse size={14} />
+          <span>Status</span>
         </button>
 
         {setRightPanelOpen && (

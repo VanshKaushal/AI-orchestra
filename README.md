@@ -1,303 +1,108 @@
-# AI Orchestra OS (V3)
+# 🎼 AI Orchestra Desktop (V4)
 
-A unified AI system where a SINGLE CHAT can seamlessly switch across multiple LLMs, MULTIPLE AI SESSIONS can run in parallel, WATCHDOG agents auto-resolve LLM questions, and all sessions share a global project-level intelligence state.
+[![Electron](https://img.shields.io/badge/Desktop-Electron-blue)]()
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js-black)]()
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-green)]()
 
-## Features
+**AI Orchestra Desktop** is a native, multi-LLM orchestration environment designed for complex engineering tasks. It transforms the legacy CLI into a high-performance desktop application where you can manage parallel AI sessions, visualize global project intelligence, and switch between models (Ollama, GPT, Claude) with zero context loss.
 
-- **Single Chat Continuity** - Switch between LLMs (auto + manual) with no context loss
-- **Multi-Session Parallel Execution** - Run multiple AI sessions simultaneously
-- **Watchdog Automation** - Auto-answer LLM questions without user interruption
-- **Command Execution** - Run shell commands or generic system commands asynchronously
-- **Policy-Driven Routing** - Centralized management of routing rules and fallback chains
-- **Local Models Priority** - Use Ollama by default to minimize cost
-- **Global Project Intelligence** - All sessions share structured state
-- **Quality Escalation** - Auto-escalate weak responses to better models
+---
 
-## Architecture
+## ✨ Key Features
 
-```
-ai_orchestra/
-├── app/
-│   ├── main.py                 # FastAPI entry point
-│   ├── api/chat.py             # REST endpoints
-│   ├── core/
-│   │   ├── orchestrator.py     # Main orchestration engine
-│   │   ├── multi_session_orchestrator.py  # Parallel session manager
-│   │   ├── router.py           # LLM selection logic
-│   │   ├── policy_engine.py    # Centralized routing policies
-│   │   ├── state_manager.py    # Conversation state (CORE)
-│   │   ├── context_builder.py  # Context reconstruction
-│   │   ├── switch_engine.py    # Auto + manual switching
-│   │   ├── watchdog.py         # Auto-answer questions
-│   │   ├── command_runner.py   # Async background execution
-│   │   ├── quality_checker.py  # Response validation
-│   │   └── usage_tracker.py    # Cost tracking
-│   ├── sessions/
-│   │   └── session_manager.py  # Session CRUD operations
-│   ├── adapters/
-│   │   ├── base_adapter.py     # Adapter contract
-│   │   ├── openai.py           # OpenAI GPT
-│   │   ├── anthropic.py        # Claude
-│   │   └── ollama.py           # Local LLM
-│   ├── memory/
-│   │   ├── short_term.py       # Redis/history
-│   │   └── long_term.py        # FAISS/vector
-│   └── models/
-│       ├── schemas.py          # Pydantic models
-│       └── state.py            # Conversation state
-├── cli/chat.py                 # Interactive multi-session CLI
-├── .env.example                # Environment template
-├── requirements.txt           # Dependencies
-└── README.md                  # This file
+- 🖥️ **Native Desktop Experience** - High-performance wrapper powered by Electron.
+- 🚀 **One-Command Setup** - Unified project lifecycle with a single `npm run dev` command.
+- 🔍 **Real-Time State Explorer** - Live dashboard visualizing session goals, decisions, and parallel task progress.
+- 🧠 **Global Intelligence State** - A centralized "brain" shared across all parallel AI sessions.
+- ⚡ **Seamless Model Switching** - Hot-swap between Local (Ollama) and Cloud (OpenAI/Anthropic) models.
+- 🐕 **Watchdog Automation** - Intelligent background agents that auto-resolve low-level LLM questions.
+- 🛠️ **Hardened API** - Production-grade FastAPI backend with robust error handling and WebSocket isolation.
+
+---
+
+## 🏗️ Architecture
+
+The system operates as a unified triad, synchronized by the Electron Main Process:
+
+```mermaid
+graph TD
+    subgraph "Desktop Application (Electron)"
+        Main["Main Process (main.js)"]
+        UI["Frontend (Next.js @ :3001)"]
+        API["Backend (FastAPI @ :8000)"]
+    end
+
+    Main -->|Spawns| API
+    Main -->|Hosts| UI
+    UI -->|REST/WS| API
+    API -->|Orchestrates| LLMs[Ollama / GPT-4 / Claude]
 ```
 
-## Installation
+---
 
-1. **Install dependencies:**
+## 🚦 Quick Start
+
+### 1. Prerequisites
+- **Node.js** (v18+)
+- **Python** (3.11+)
+- **Ollama** (Recommended for local inference)
+
+### 2. Installation
+
+Clone and install dependencies for all layers:
+
 ```bash
+# Install root dependencies
+npm install
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Install backend dependencies
 pip install -r requirements.txt
 ```
 
-2. **Set up environment:**
+### 3. Environment Setup
 ```bash
 cp .env.example .env
-# Edit .env with your API keys
+# Add your OPENAI_API_KEY and ANTHROPIC_API_KEY
 ```
 
-3. **Install Ollama (for local LLM):**
-```bash
-# macOS
-brew install ollama
-
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Windows: Download from https://ollama.com
-```
-
-4. **Start Ollama:**
-```bash
-ollama serve
-# In another terminal:
-ollama pull mistral
-```
-
-5. **Start Redis (optional):**
-```bash
-# Docker
-docker run -d -p 6379:6379 redis
-
-# Or install locally
-```
-
-## Usage
-
-### Start the API Server
+### 4. Launch the Orchestra
+The desktop app handles everything for you:
 
 ```bash
-uvicorn app.main:app --reload
+npm run dev
 ```
+*This starts the Next.js dev server, spawns the FastAPI backend, and launches the Electron window.*
 
-API will be available at `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
+---
 
-### Start the CLI
+## 📊 The State Explorer
+
+The core of AI Orchestra is the **Global State**. It ensures that even if you have 10 parallel sessions, they all share a single source of truth:
+
+- **Goals**: The overarching mission of the project.
+- **Decisions**: A log of finalized architectural or logic choices.
+- **Open Tasks**: Shared todo-list for all active agents.
+- **Context Summary**: Compressed project memory.
+
+---
+
+## 🛠️ Advanced Usage (Legacy CLI)
+
+For power users who prefer the terminal, the legacy CLI is still available:
 
 ```bash
-python cli/chat.py
-```
+| Command | Description |
+| :--- | :--- |
+| `/new "<task>"` | Create a new parallel AI session |
+| `/sessions` | List all active sessions |
+| `/switch <id> <model>` | Hot-swap a session's model |
+| `/state` | Dump the global intelligence state |
+| `/exit` | Terminate the CLI |
 
-### CLI Commands
-
-```
-/new "<task>"           - Create new session
-/sessions               - List all sessions
-/msg <id> "<message>"   - Send message to session
-/switch <id> <model>    - Switch model for session
-/use <id>               - Set active session
-/state                  - Show global state
-/run "<command>"        - Run background shell command
-/exit                   - Exit
-```
-
-### API Endpoints
-
-```bash
-# Chat
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hello!", "session_id": "default"}'
-
-# Health check
-curl http://localhost:8000/health
-
-# Get stats
-curl http://localhost:8000/stats
-
-# Get global state
-curl http://localhost:8000/state
-
-# Manual switch
-curl -X POST http://localhost:8000/switch \
-  -H "Content-Type: application/json" \
-  -d '{"session_id": "default", "model": "openai"}'
-
-# Run shell command
-curl -X POST "http://localhost:8000/run?command=ls"
-
-# Run generic command
-curl -X POST http://localhost:8000/command \
-  -H "Content-Type: application/json" \
-  -d '{"command": "test"}'
-```
-
-## Global State Design (THE CORE)
-
-The system maintains ONE shared project-level state:
-
-```python
-{
-  "goal": string,           # What user is trying to accomplish
-  "context_summary": string,# Accumulated context
-  "decisions": [string],    # Decisions made during conversation
-  "open_tasks": [string],   # Pending tasks
-  "conversation_style": {
-    "tone": "professional",
-    "depth": "detailed"
-  }
-}
-```
-
-## Context Reconstruction Engine
-
-When calling ANY LLM, we construct:
-
-```
-SYSTEM:
-You are continuing an ongoing engineering task.
-
-GOAL:
-{goal}
-
-PROGRESS:
-{decisions}
-
-PENDING TASKS:
-{open_tasks}
-
-SUMMARY:
-{context_summary}
-
-STYLE:
-Tone: {tone}
-Depth: {depth}
-
-USER INPUT:
-{message}
-
-Remember: You are continuing a conversation, NOT starting fresh.
-```
-
-This ensures the LLM always knows the conversation state, not just raw history.
-
-## Session State (ISOLATED)
-
-Each session has its own isolated state:
-
-```python
-{
-  "session_id": string,
-  "task": string,
-  "model": string,
-  "local_summary": string,
-  "status": "running" | "waiting" | "completed"
-}
-```
-
-## Routing Logic (Policy Engine)
-
-The routing is handled by a centralized `PolicyEngine` which enforces:
-1. Default → Ollama (FREE)
-2. Query length > 100 words → Anthropic
-3. Query length > 500 words or "complex" → OpenAI
-4. Automatic fallback chain: OpenAI → Anthropic → Ollama
-
-## Watchdog System
-
-The watchdog detects question patterns in LLM responses and auto-answers them:
-
-- "should I..." → "Yes, proceed"
-- "which framework" → "Use the most popular"
-- "confirm" → "Confirmed, continue"
-
-This keeps AI sessions running continuously without pausing for user confirmation.
-
-## Environment Variables
-
-```env
-# OpenAI
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-3.5-turbo
-
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-3-haiku-20240307
-
-# Ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=mistral
-
-# Redis
-REDIS_URL=redis://localhost:6379
-```
-
-## Example Session
-
-```
-==================================================
-  AI Orchestra V3 - Multi-Session Orchestrator
-  ONE AI brain, MANY parallel processes
-==================================================
-
-Commands: /new, /sessions, /msg, /switch, /state, /run, /exit
-
-You: /new "Build a todo API"
-
-[Created]: Session a1b2c3d4 - Build a todo API
-
-You [a1b2c3d]: What endpoints do I need?
-
-[Session a1b2c3d4]: What endpoints do I need?
-
-[ollama]: For a todo API, you'll need:
-
-1. GET /todos - List all todos
-2. POST /todos - Create a new todo
-3. GET /todos/{id} - Get single todo
-4. PUT /todos/{id} - Update todo
-5. DELETE /todos/{id} - Delete todo
-
-/switch a1b2c3d4 openai
-
-[Switched]: Session a1b2c3d4 to openai
-
-/state
-
-=== Global State ===
-Total sessions: 1
-Running: 1
-Conversation: Goal: Build a todo API | Intent: help request | Style: helpful/standard
-```
-
-## Requirements
-
-- Python 3.11+
-- fastapi, uvicorn, httpx, pydantic
-- redis (optional, falls back to in-memory)
-- faiss-cpu (optional, falls back to in-memory)
-- sentence-transformers (optional)
-
-## System Feel
+---
 
 The system should feel like:
 - → ONE AI brain
