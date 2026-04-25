@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from app.models.schemas import ChatRequest, ChatResponse, CommandRequest
 from app.core.orchestrator import Orchestrator
 from app.sessions.session_manager import session_manager
+from app.graph.event_store import log_event
 
 router = APIRouter()
 orchestrator = Orchestrator()
@@ -28,6 +29,13 @@ async def chat(request: ChatRequestExact):
         from app.core.multi_session_orchestrator import multi_session_orchestrator
         result = await multi_session_orchestrator.send_message(request.session_id, request.message)
         
+        log_event("message_processed", {"session_id": request.session_id, "message": request.message})
+        log_event("response_generated", {
+            "session_id": request.session_id,
+            "response": result.get("response", ""),
+            "model": str(result.get("provider", "ollama"))
+        })
+
         # result expected to have 'response', 'provider', 'fallback_triggered'
         return ChatResponseExact(
             response=result.get("response", ""),
@@ -75,6 +83,7 @@ async def create_session(task: str, model: str = "ollama"):
     """Create a new session"""
     try:
         result = session_manager.create(task, model)
+        log_event("session_created", result)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -130,7 +139,13 @@ async def send_session_message(session_id: str, message: str):
     """Send a message to a session"""
     from app.core.multi_session_orchestrator import multi_session_orchestrator
     try:
+        log_event("message_processed", {"session_id": session_id, "message": message})
         result = await multi_session_orchestrator.send_message(session_id, message)
+        log_event("response_generated", {
+            "session_id": session_id,
+            "response": result.get("response", ""),
+            "model": result.get("provider", "ollama")
+        })
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

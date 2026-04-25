@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+* {
+  box-sizing: border-box;
+}
+
 :root {
   --background: #09090b; /* zinc-950 */
   --foreground: #fafafa;

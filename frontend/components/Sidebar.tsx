@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useStore } from "../store/useStore";
 import { getSessions, createSession } from "../services/api";
-import { Plus, MessageSquare, Settings, User } from "lucide-react";
+import { Plus, MessageSquare, Settings, User, Share2 } from "lucide-react";
+import Link from "next/link";
 
 export default function Sidebar() {
   const { sessions, activeSessionId, setActiveSessionId, addSession, setSessions } = useStore();
@@ -58,6 +59,10 @@ export default function Sidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-hide py-2">
+        <Link href="/graph" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200 mb-2">
+          <Share2 size={16} className="text-zinc-500" />
+          <div className="text-sm font-medium">Cognitive Graph</div>
+        </Link>
         <div className="text-xs font-semibold text-zinc-500 px-2 py-2">Recent Sessions</div>
         {sessions.map((session) => (
           <button

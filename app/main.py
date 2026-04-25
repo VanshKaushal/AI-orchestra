@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import router
 from app.api.state import router as state_router
 from app.api.command import router as command_router
+from app.graph.graph_router import router as graph_router
 from app.utils.logger import logger
 
 app = FastAPI(
@@ -34,6 +35,7 @@ def health():
 app.include_router(router, tags=["chat"])
 app.include_router(state_router, tags=["state"])
 app.include_router(command_router, tags=["command"])
+app.include_router(graph_router, prefix="/graph", tags=["graph"])
 
 from fastapi import WebSocket, WebSocketDisconnect
 from app.core.ws_manager import ws_manager
