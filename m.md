@@ -1,141 +1,85 @@
-# 🧨 NUCLEAR FIX PROMPT — SAFE STRING ACCESS (toLowerCase crash)
+I am working on a Next.js (v16, App Router, Turbopack) frontend with a backend API (Node.js/Express or similar).
 
-## 🎯 OBJECTIVE
+I am getting the following errors:
+- "Failed to fetch"
+- "Failed to load initial state"
+- "TypeError: Cannot read properties of undefined (reading 'session_id')"
+- Errors inside useEffect/useCallback due to failed API calls
 
-Fix runtime error:
+IMPORTANT CONSTRAINTS:
+- DO NOT rewrite the whole project
+- DO NOT change working features or UI
+- DO NOT refactor unrelated components
+- ONLY fix the data fetching, error handling, and undefined data issues
+- Keep changes minimal, isolated, and production-safe
 
-"Cannot read properties of undefined (reading 'toLowerCase')"
+YOUR TASK (STRICTLY FOLLOW):
 
-WITHOUT affecting:
+1. ROOT CAUSE IDENTIFICATION
+   - Precisely explain why "Failed to fetch" happens in real-world scenarios
+   - Map each error to its exact cause (network, backend down, bad JSON, etc.)
 
-* API calls
-* backend logic
-* state structure
-* UI behavior
-* existing flow
+2. SAFE DEBUGGING CHECKLIST
+   - Give step-by-step checks in this exact order:
+     a) Verify backend is running
+     b) Verify API endpoint correctness
+     c) Check browser Network tab
+     d) Check CORS issues
+     e) Check response format (must be JSON)
 
----
+3. PATCH-LEVEL FIXES (IMPORTANT)
+   - Modify ONLY fetch-related code
+   - Add:
+     - try/catch
+     - response.ok validation
+     - fallback values
+   - DO NOT restructure app
 
-# ⚠️ STRICT RULES
+Example format:
+BEFORE:
+<original code>
 
-* DO NOT refactor components
-* DO NOT change data flow
-* DO NOT rename variables
-* DO NOT modify API contracts
-* ONLY add safety guards
+AFTER:
+<minimally modified code>
 
----
+4. FIX UNDEFINED ERRORS SAFELY
+   - Add guards for:
+     - session_id
+     - API response objects
+   - Use optional chaining and fallback values
+   - Ensure app does NOT crash if API fails
 
-# 🔍 STEP 1 — FIND ALL UNSAFE STRING CALLS
+5. REACT HOOK SAFETY
+   - Fix useEffect/useCallback issues WITHOUT changing logic
+   - Prevent:
+     - repeated API calls
+     - state updates on undefined
+   - Keep dependency arrays correct
 
-Search entire frontend for:
+6. BACKEND COMPATIBILITY CHECK
+   - Show what the backend response MUST look like
+   - Example:
+     {
+       "session_id": "string",
+       "data": []
+     }
 
-.toLowerCase(
-.toUpperCase(
-.trim(
-.includes(
+7. FAIL-SAFE LAYER
+   - Ensure:
+     - UI does not crash
+     - Errors are logged cleanly
+     - Fallback UI or empty state is handled
 
----
+8. DO NOT BREAK ANYTHING RULE
+   - Any fix must:
+     - NOT remove existing functionality
+     - NOT change API structure
+     - NOT introduce new dependencies unless absolutely necessary
 
-# 🛠️ STEP 2 — APPLY SAFE ACCESS PATCH
+9. OUTPUT FORMAT
+   - Step-by-step explanation
+   - Minimal code patches only
+   - No unnecessary rewrites
 
-Replace ALL unsafe calls:
-
-### ❌ BEFORE
-
-value.toLowerCase()
-
-### ✅ AFTER
-
-(value || "").toLowerCase()
-
----
-
-# 🔁 STEP 3 — HANDLE OBJECT ACCESS (CRITICAL)
-
-### ❌ BEFORE
-
-a.name.toLowerCase()
-
-### ✅ AFTER
-
-(a?.name || "").toLowerCase()
-
----
-
-# 🔁 STEP 4 — HANDLE FUNCTION CHAIN SAFELY
-
-### ❌ BEFORE
-
-provider.toLowerCase()
-
-### ✅ AFTER
-
-provider?.toLowerCase?.() || ""
-
----
-
-# 🔍 STEP 5 — FIX SPECIFIC CRASH AREA (logRequest)
-
-Locate function:
-logRequest(...)
-
-Patch comparison logic:
-
-### ❌ BEFORE
-
-agents.find(a => a.name.toLowerCase() === provider.toLowerCase())
-
-### ✅ AFTER
-
-agents.find(a =>
-(a?.name || "").toLowerCase() === (provider || "").toLowerCase()
-)
-
----
-
-# 🛡️ STEP 6 — ADD PRE-GUARD (MINIMAL)
-
-Before using provider:
-
-if (!provider) {
-console.warn("Provider missing — using fallback");
-}
-
----
-
-# ⚠️ STEP 7 — DO NOT ALTER LOGIC
-
-* DO NOT change how provider is set
-* DO NOT change agent list
-* DO NOT change backend response handling
-
-ONLY prevent crash
-
----
-
-# 🧪 STEP 8 — VALIDATION
-
-After patch:
-
-1. No runtime crash
-2. sendMessage works
-3. No console TypeError
-4. UI still behaves same
-
----
-
-# 🎯 SUCCESS CRITERIA
-
-✔ No "toLowerCase of undefined" error
-✔ No new errors introduced
-✔ No change in system behavior
-✔ Safe handling of missing values
-
----
-
-# 🧠 FINAL NOTE
-
-This is a defensive patch, NOT a root-cause fix.
-
-It stabilizes runtime while keeping system unchanged.
+GOAL:
+Fix all fetch-related errors and undefined crashes while keeping the rest of the app completely intact and stable.

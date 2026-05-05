@@ -8,4 +8,5 @@ pydantic
 sentence-transformers
 openai
 anthropic
+scikit-learn
 numpy

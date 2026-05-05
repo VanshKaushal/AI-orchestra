@@ -123,12 +123,13 @@ export function useChat() {
         throw new Error(res.error || "Failed to reach AI engine.");
       }
 
-      if (!res.data.session_id) {
-        console.error("Critical: Response missing session_id", res.data);
+      const data = res.data;
+      if (!data?.session_id) {
+        console.error("Critical: Response missing session_id", data);
         throw new Error("Invalid server response: missing session_id");
       }
 
-      const { model, switch: didSwitch, message_id, response } = res.data;
+      const { model, switch: didSwitch, message_id, response } = data;
 
       // Mark user message as sent
       addMessage(activeSessionId, { ...userMsg, isSending: false });

@@ -8,6 +8,7 @@ class GraphNode(BaseModel):
     importance: float = 0.0
     timestamp: float
     metadata: Dict[str, Any] = {}
+    cluster: Optional[int] = None
 
 class GraphEdge(BaseModel):
     source: str

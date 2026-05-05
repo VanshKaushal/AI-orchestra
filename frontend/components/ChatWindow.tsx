@@ -19,20 +19,32 @@ export default function ChatWindow() {
   }, [sessionMessages]);
 
   const handleNewSession = async () => {
-    const res = await createSession();
+    try {
+      const res = await createSession();
 
-    if (!res.success || !res.data) {
-      alert("Backend not reachable: " + (res.error || "Unknown error"));
-      return;
+      if (!res.success || !res.data) {
+        console.error("Backend not reachable or returned error:", res.error);
+        // We can show a more user-friendly message or fallback
+        const fallbackSession: any = {
+          id: `local-${Date.now()}`,
+          name: `Session ${sessions.length + 1} (Offline)`,
+          status: "idle",
+          createdAt: new Date().toISOString(),
+        };
+        addSession(fallbackSession);
+        return;
+      }
+
+      const newSession: any = {
+        id: res.data.session_id || `s-${Date.now()}`,
+        name: res.data.task || `Session ${sessions.length + 1}`,
+        status: res.data.status || "idle",
+        createdAt: res.data.created_at || new Date().toISOString(),
+      };
+      addSession(newSession);
+    } catch (err) {
+      console.error("Failed to create session in ChatWindow:", err);
     }
-
-    const newSession: any = {
-      id: res.data.session_id,
-      name: res.data.task || `Session ${sessions.length + 1}`,
-      status: res.data.status || "idle",
-      createdAt: res.data.created_at || new Date().toISOString(),
-    };
-    addSession(newSession);
   };
 
 

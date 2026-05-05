@@ -58,7 +58,7 @@ export default function StatePanel() {
                 <span className="font-mono text-xs">{progress}%</span>
               </div>
             </div>
-            {globalState.tasks && globalState.tasks.length > 0 && (
+            {globalState?.tasks && Array.isArray(globalState.tasks) && globalState.tasks.length > 0 && (
               <div>
                 <div className="text-[10px] text-zinc-500 font-bold tracking-wider mb-1">TASKS</div>
                 <ul className="text-xs text-zinc-400 space-y-1.5 pl-4 list-disc marker:text-zinc-600">

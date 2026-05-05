@@ -10,23 +10,43 @@ export default function Sidebar() {
   const { sessions, activeSessionId, setActiveSessionId, addSession, setSessions, user } = useStore();
 
   useEffect(() => {
+    let isMounted = true;
     async function fetchSessions() {
       try {
-        const { data } = await getSessions();
-        if (data && Array.isArray(data)) {
-          setSessions(data);
+        const res = await getSessions();
+        if (!isMounted) return;
+        
+        if (res.success && res.data && Array.isArray(res.data)) {
+          setSessions(res.data);
+        } else {
+          console.warn("Sessions fetch was not successful or returned no data", res.error);
         }
       } catch (err) {
         console.error("Failed to load sessions", err);
       }
     }
     fetchSessions();
+    return () => { isMounted = false; };
   }, [setSessions]);
 
   const handleNewSession = async () => {
     try {
-      const { data } = await createSession();
-      // data ideally contains the session object matching schema
+      const res = await createSession();
+      
+      // Defensive check for res.data
+      const data = res.data;
+      if (!res.success || !data) {
+        console.error("Failed to create session on backend:", res.error);
+        // Fallback to local session creation if backend fails
+        addSession({
+          id: `local-${Date.now()}`,
+          name: `Session ${sessions.length + 1} (Offline)`,
+          status: "idle",
+          createdAt: new Date().toISOString(),
+        });
+        return;
+      }
+
       const newSession: any = {
         id: data.session_id || Date.now().toString(),
         name: data.task || data.name || `Session ${sessions.length + 1}`,
@@ -35,11 +55,11 @@ export default function Sidebar() {
       };
       addSession(newSession);
     } catch (err) {
-      console.error("Failed to create session", err);
+      console.error("Critical error in handleNewSession:", err);
       // Fallback
       addSession({
-        id: Date.now().toString(),
-        name: `Session ${sessions.length + 1}`,
+        id: `err-${Date.now()}`,
+        name: `Session ${sessions.length + 1} (Error)`,
         status: "idle",
         createdAt: new Date().toISOString(),
       });

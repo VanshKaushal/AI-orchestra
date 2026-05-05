@@ -26,32 +26,35 @@ async function request<T>(
     if (!res.ok) {
       return {
         success: false,
-        error: `HTTP ${res.status}: ${text}`,
+        error: `HTTP ${res.status}: ${text || res.statusText}`,
+      };
+    }
+
+    if (!text || text.trim() === "") {
+      return {
+        success: true,
+        data: {} as T, // Return empty object if success but no body
       };
     }
 
     try {
       const data = JSON.parse(text);
-      if (!data) {
-        return {
-          success: false,
-          error: "Empty response from server",
-        };
-      }
       return {
         success: true,
         data,
       };
     } catch (e) {
+      console.error("JSON Parse Error:", e, "Raw text:", text);
       return {
         success: false,
-        error: "Failed to parse JSON response",
+        error: "Server returned invalid JSON format",
       };
     }
   } catch (err: any) {
+    console.error("Fetch Error:", err);
     return {
       success: false,
-      error: err.message || "Network error",
+      error: err.message || "Network request failed. Is the backend running?",
     };
   }
 }

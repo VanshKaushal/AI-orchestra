@@ -3,96 +3,143 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
-import GraphCanvas from '../../components/GraphCanvas';
 import axios from 'axios';
-import { Share2, RefreshCw, Sliders, Info, X } from 'lucide-react';
+import { Share2, RefreshCw, Sliders, Info, X, Layers, MousePointer2, Anchor } from 'lucide-react';
+import { useStore } from '../../store/useStore';
+import dynamic from 'next/dynamic';
+import { processGraph } from '../../services/graphProcessor';
+import { sanitizeGraph } from '../../services/graphSanitizer';
+import { GraphNode, GraphEdge } from '../../types/graph';
+
+const GraphCanvas3D = dynamic(
+  () => import('../../components/GraphCanvas3D'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full text-neutral-400">
+        Loading Cognitive Graph...
+      </div>
+    )
+  }
+);
+import { getClusters, Cluster } from '../../services/clusterEngine';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const typeColors: Record<string, string> = {
   goal: '#ef4444',    // red
   task: '#eab308',    // yellow
-  decision: '#a855f7', // purple
-  session: '#3b82f6',  // blue
-  llm: '#71717a',     // gray
+  response: '#3b82f6', // blue
+  model: '#71717a',     // gray
   insight: '#f97316',  // orange
+  cluster: '#a855f7',  // purple (macro)
 };
 
 export default function GraphPage() {
-  const [nodes, setNodes] = useState<any[]>([]);
-  const [edges, setEdges] = useState<any[]>([]);
+  const { activeSessionId, sessions } = useStore();
+  const [nodes, setNodes] = useState<GraphNode[]>([]);
+  const [edges, setEdges] = useState<GraphEdge[]>([]);
+  const [clusters, setClusters] = useState<Cluster[]>([]);
   const [importanceThreshold, setImportanceThreshold] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [zoom, setZoom] = useState(1);
+  const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
+  const [mode, setMode] = useState<"normal" | "ai">("normal");
+  const [threshold, setThreshold] = useState(0.7);
+  const [kClusters, setKClusters] = useState(5);
+
+  const clusterColors = [
+    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
+    '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'
+  ];
 
   const fetchGraphData = useCallback(async () => {
+    if (!activeSessionId) return;
     setLoading(true);
     try {
-      const response = await fetch(`${BACKEND_URL}/graph`);
-      const text = await response.text();
-      
+      // Step 7: Session-based Isolation
+      const endpoint = mode === "ai" 
+        ? `${BACKEND_URL}/graph/ai/${activeSessionId}?threshold=${threshold}&k=${kClusters}`
+        : `${BACKEND_URL}/graph?session_id=${activeSessionId}`;
+        
+      const response = await fetch(endpoint);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${text}`);
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
       }
+      
+      const data = await response.json();
+      
+      if (!data || data.error) throw new Error(data?.error || "Failed to fetch graph data");
 
-      const data = JSON.parse(text);
-      if (!data || data.error) throw new Error(data?.error || data?.message || "Failed to fetch graph data");
+      // Step 1: Data Sanitization & Step 6: Deduplication
+      const processedGraph = processGraph(data);
+      
+      // Step 2: Clustering
+      const graphClusters = getClusters(processedGraph.nodes);
+      setClusters(graphClusters);
 
-      const { nodes: rawNodes, edges: rawEdges } = data;
-
-
-
-      // Map backend nodes to React Flow nodes
-      const flowNodes = rawNodes.map((n: any, index: number) => ({
-        id: n.id,
-        type: 'default', // Using default React Flow node for now
-        data: { label: n.label, ...n },
-        position: { x: Math.random() * 800, y: Math.random() * 600 }, // Random layout as fallback
-        style: {
-          background: typeColors[n.type] || '#555',
-          color: '#fff',
-          borderRadius: '12px',
-          padding: '10px',
-          fontSize: '12px',
-          width: 50 + n.importance * 20,
-          height: 30 + n.importance * 10,
-          border: 'none',
-          boxShadow: `0 0 20px ${typeColors[n.type]}44`,
-          transition: 'all 0.3s ease',
-        },
-      }));
-
-      // Map backend edges to React Flow edges
-      const flowEdges = rawEdges.map((e: any) => ({
-        id: `${e.source}-${e.target}-${e.type}`,
-        source: e.source,
-        target: e.target,
-        label: e.type,
-        animated: true,
-        style: { stroke: '#444', strokeWidth: 1.5 },
-      }));
-
-      setNodes(flowNodes);
-      setEdges(flowEdges);
+      setNodes(processedGraph.nodes);
+      setEdges(processedGraph.edges);
+      
+      console.log("SANITIZED GRAPH:", { nodes: processedGraph.nodes, edges: processedGraph.edges });
     } catch (error) {
       console.error("Failed to fetch graph data:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeSessionId, mode, threshold, kClusters]);
+
+  const mergeSessions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const results = await Promise.all(
+        sessions.map(async (s) => {
+          try {
+            const r = await fetch(`${BACKEND_URL}/graph?session_id=${s.id}`);
+            if (!r.ok) return { nodes: [], edges: [] };
+            return await r.json();
+          } catch (e) {
+            console.error(`Failed to fetch graph for session ${s.id}:`, e);
+            return { nodes: [], edges: [] };
+          }
+        })
+      );
+      
+      const combinedNodes = results.flatMap(r => r.nodes || []);
+      const combinedEdges = results.flatMap(r => r.edges || []);
+      
+      const processed = processGraph({ nodes: combinedNodes, edges: combinedEdges });
+      const graphClusters = getClusters(processed.nodes);
+      
+      setNodes(processed.nodes);
+      setEdges(processed.edges);
+      setClusters(graphClusters);
+    } catch (error) {
+      console.error("Merge failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessions]);
 
   useEffect(() => {
     fetchGraphData();
   }, [fetchGraphData]);
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: any) => {
-    setSelectedNode(node.data);
+  const onNodeClick = useCallback((node: any) => {
+    setSelectedNode(node);
   }, []);
 
-  const filteredNodes = nodes.filter(n => (n.data.importance || 0) >= importanceThreshold);
+  const filteredNodes = (nodes || [])
+    .filter(Boolean)
+    .filter(n => (n.importance ?? 0) >= importanceThreshold);
+    
   // Also filter edges to ensure they only connect existing nodes
   const visibleNodeIds = new Set(filteredNodes.map(n => n.id));
-  const filteredEdges = edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+  const filteredEdges = (edges || [])
+    .filter(e => e && e.source && e.target)
+    .filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
 
   return (
     <div className="h-screen w-full flex flex-col bg-black text-white overflow-hidden font-sans">
@@ -124,8 +171,51 @@ export default function GraphPage() {
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               GENERATE
             </button>
+
+            <button 
+              onClick={mergeSessions}
+              disabled={loading || sessions.length < 2}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 hover:bg-zinc-800 text-white rounded-lg transition-all text-xs font-bold disabled:opacity-50 active:scale-95"
+            >
+              <Layers size={14} />
+              MERGE SESSIONS
+            </button>
             
             <div className="flex items-center gap-4 ml-auto">
+              {/* Mode Toggle */}
+              <div className="flex bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                <button 
+                  onClick={() => setMode("normal")}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${mode === "normal" ? "bg-neutral-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                >
+                  NORMAL
+                </button>
+                <button 
+                  onClick={() => setMode("ai")}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${mode === "ai" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                >
+                  AI ENRICHED
+                </button>
+              </div>
+
+              {mode === "ai" && (
+                <div className="flex items-center gap-3 bg-neutral-900/50 px-3 py-1.5 rounded-full border border-neutral-800">
+                  <span className="text-[10px] text-zinc-500 font-black">SIMILARITY</span>
+                  <input 
+                    type="range" 
+                    min="0.5" 
+                    max="0.95" 
+                    step="0.05"
+                    value={threshold}
+                    onChange={(e) => setThreshold(Number(e.target.value))}
+                    className="w-24 accent-blue-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <span className="text-[10px] text-zinc-500 font-mono w-6 text-center">
+                    {threshold.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center gap-3 bg-neutral-900/50 px-3 py-1.5 rounded-full border border-neutral-800">
                 <Sliders size={14} className="text-zinc-500" />
                 <input 
@@ -146,23 +236,44 @@ export default function GraphPage() {
 
           {/* GRAPH CANVAS AREA */}
           <div className="flex-1 relative z-0">
-            <GraphCanvas 
-              nodes={filteredNodes} 
-              edges={filteredEdges} 
-              onNodeClick={onNodeClick}
-            />
+            {!loading && nodes.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-zinc-500 bg-[#050505]">
+                <div className="text-center">
+                  <Share2 size={48} className="mx-auto mb-4 opacity-20" />
+                  <p className="text-sm font-medium">No graph data available for this session.</p>
+                </div>
+              </div>
+            ) : (
+              <GraphCanvas3D 
+                nodes={filteredNodes} 
+                edges={filteredEdges}
+                clusters={clusters}
+                zoom={zoom}
+                onNodeClick={(node) => setSelectedNode(node)}
+              />
+            )}
 
-            {/* LEGEND (Fixed Position Overlay inside Canvas) */}
-            <div className="absolute bottom-6 left-6 z-10 bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 p-4 rounded-2xl shadow-2xl ring-1 ring-white/5">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-3 pb-2 border-b border-zinc-800/50">Legend</div>
+            {/* LEGEND (Fixed Position Overlay) */}
+            <div className="absolute bottom-6 left-6 z-10 bg-black/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-3 pb-2 border-b border-white/5">Engine Layers</div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
                 {Object.entries(typeColors).map(([type, color]) => (
-                  <div key={type} className="flex items-center gap-2.5 group cursor-default">
-                    <div className="w-2.5 h-2.5 rounded-full ring-4 ring-offset-4 ring-offset-zinc-900 ring-transparent group-hover:ring-current transition-all duration-300" style={{ backgroundColor: color, color: color }}></div>
+                  <div key={type} className="flex items-center gap-2.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}></div>
                     <span className="text-[10px] text-zinc-400 font-medium capitalize tracking-wide">{type}</span>
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Step 9: Interaction Controls */}
+            <div className="absolute top-6 right-6 z-10 flex flex-col gap-2">
+              <button className="p-3 bg-zinc-900 border border-white/10 rounded-xl hover:bg-zinc-800 text-zinc-400" title="Focus Mode">
+                <MousePointer2 size={18} />
+              </button>
+              <button className="p-3 bg-zinc-900 border border-white/10 rounded-xl hover:bg-zinc-800 text-zinc-400" title="Pin Node">
+                <Anchor size={18} />
+              </button>
             </div>
           </div>
         </div>
