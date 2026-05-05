@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from app.models.schemas import ChatRequest, ChatResponse, CommandRequest
 from app.core.orchestrator import Orchestrator
 from app.sessions.session_manager import session_manager
@@ -12,12 +13,14 @@ orchestrator = Orchestrator()
 class ChatRequestExact(BaseModel):
     session_id: str
     message: str
+    provider: Optional[str] = None
 
 class ChatResponseExact(BaseModel):
     response: str
     model: str
     switch: bool
     session_id: str
+    message_id: str
 
 @router.post("/chat", response_model=ChatResponseExact)
 async def chat(request: ChatRequestExact):
@@ -36,12 +39,14 @@ async def chat(request: ChatRequestExact):
             "model": str(result.get("provider", "ollama"))
         })
 
+        import uuid
         # result expected to have 'response', 'provider', 'fallback_triggered'
         return ChatResponseExact(
             response=result.get("response", ""),
             model=str(result.get("provider", "ollama")),
             switch=result.get("fallback_triggered", False),
-            session_id=request.session_id
+            session_id=request.session_id,
+            message_id=str(uuid.uuid4())
         )
     except Exception as e:
         logger.error(f"Chat failed: {str(e)}")
@@ -99,21 +104,19 @@ async def list_sessions():
         print("Sessions:", sessions)
         
         if sessions is None:
-            return {"sessions": []}
+            return []
 
         # Force JSON safety and mapping
-        return {
-            "sessions": [
-                {
-                    "id": str(s.get("session_id", s.get("id", ""))),
-                    "messages": s.get("messages", [])
-                }
-                for s in sessions
-            ]
-        }
+        return [
+            {
+                "id": str(s.get("session_id", s.get("id", ""))),
+                "messages": s.get("messages", [])
+            }
+            for s in sessions
+        ]
     except Exception as e:
         print("ERROR /sessions:", e)
-        return {"sessions": []}
+        return []
 
 
 @router.get("/sessions/{session_id}")

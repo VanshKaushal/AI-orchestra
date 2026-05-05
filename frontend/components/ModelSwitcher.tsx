@@ -18,7 +18,7 @@ export default function ModelSwitcher() {
     try {
       switchModelStore(activeSessionId, model); // optimistic UI
       setIsOpen(false);
-      await switchModel(activeSessionId, model).catch(() => {});
+      await switchModel(activeSessionId, (model || "").toLowerCase()).catch(() => {});
     } catch (err) {
       console.error("Failed to switch model", err);
     }

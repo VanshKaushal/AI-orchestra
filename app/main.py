@@ -2,13 +2,14 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import router
 from app.api.state import router as state_router
 from app.api.command import router as command_router
 from app.graph.graph_router import router as graph_router
 from app.utils.logger import logger
+import shutil
 
 app = FastAPI(
     title="AI Orchestra",
@@ -23,6 +24,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Handle file uploads for Issue 3"""
+    try:
+        # Create uploads directory if it doesn't exist
+        os.makedirs("uploads", exist_ok=True)
+        file_path = os.path.join("uploads", file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        logger.info(f"File uploaded: {file.filename}")
+        return {"filename": file.filename, "status": "uploaded", "path": file_path}
+    except Exception as e:
+        logger.error(f"Upload failed: {str(e)}")
+        return {"error": str(e), "status": "failed"}
 
 @app.get("/")
 def root():

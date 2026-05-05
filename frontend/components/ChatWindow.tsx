@@ -19,19 +19,22 @@ export default function ChatWindow() {
   }, [sessionMessages]);
 
   const handleNewSession = async () => {
-    try {
-      const { data } = await createSession();
-      const newSession: any = {
-        id: data.session_id || Date.now().toString(),
-        name: data.task || data.name || `Session ${sessions.length + 1}`,
-        status: data.status || "idle",
-        createdAt: data.created_at || new Date().toISOString(),
-      };
-      addSession(newSession);
-    } catch (err) {
-      console.error("Failed to create session", err);
+    const res = await createSession();
+
+    if (!res.success || !res.data) {
+      alert("Backend not reachable: " + (res.error || "Unknown error"));
+      return;
     }
+
+    const newSession: any = {
+      id: res.data.session_id,
+      name: res.data.task || `Session ${sessions.length + 1}`,
+      status: res.data.status || "idle",
+      createdAt: res.data.created_at || new Date().toISOString(),
+    };
+    addSession(newSession);
   };
+
 
   if (!activeSessionId) {
     return (

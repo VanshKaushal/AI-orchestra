@@ -35,81 +35,111 @@ graph TD
     Main -->|Spawns| API
     Main -->|Hosts| UI
     UI -->|REST/WS| API
-    API -->|Orchestrates| LLMs[Ollama / GPT-4 / Claude]
-```
+    # AI Orchestra
 
----
+    [![Electron](https://img.shields.io/badge/Desktop-Electron-blue)]()
+    [![Next.js](https://img.shields.io/badge/Frontend-Next.js-black)]()
+    [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-green)]()
 
-## 🚦 Quick Start
+    AI Orchestra is a multi-LLM orchestration environment combining a FastAPI backend, a Next.js frontend, and an Electron-based desktop wrapper. It provides session-based orchestration, model switching, a global state explorer, and tooling for integration tests and CLI workflows.
 
-### 1. Prerequisites
-- **Node.js** (v18+)
-- **Python** (3.11+)
-- **Ollama** (Recommended for local inference)
+    ---
 
-### 2. Installation
+    **Quick links**
+    - **Backend entry:** [app/main.py](app/main.py)
+    - **Dev runner:** [package.json](package.json)
+    - **Frontend:** [frontend/package.json](frontend/package.json)
+    - **Run API test helper:** [run_api.py](run_api.py)
+    - **CLI test:** [cli/test_chat.py](cli/test_chat.py)
 
-Clone and install dependencies for all layers:
+    ---
 
-```bash
-# Install root dependencies
-npm install
+    ## Quick Start
 
-# Install frontend dependencies
-cd frontend && npm install && cd ..
+    Prerequisites:
+    - Node.js (v18+ recommended)
+    - Python 3.11+
+    - (Optional) Ollama or other local inference runtimes if you plan to run local LLMs
 
-# Install backend dependencies
-pip install -r requirements.txt
-```
+    Install dependencies:
 
-### 3. Environment Setup
-```bash
-cp .env.example .env
-# Add your OPENAI_API_KEY and ANTHROPIC_API_KEY
-```
+    ```bash
+    # Root (tools used by electron/dev orchestration)
+    npm install
 
-### 4. Launch the Orchestra
-The desktop app handles everything for you:
+    # Frontend
+    cd frontend && npm install && cd ..
 
-```bash
-npm run dev
-```
-*This starts the Next.js dev server, spawns the FastAPI backend, and launches the Electron window.*
+    # Python backend
+    pip install -r requirements.txt
+    ```
 
----
+    Environment:
+    - Copy and populate environment variables as needed (e.g. API keys):
 
-## 📊 The State Explorer
+    ```bash
+    cp .env.example .env
+    # Add OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.
+    ```
 
-The core of AI Orchestra is the **Global State**. It ensures that even if you have 10 parallel sessions, they all share a single source of truth:
+    Run (development):
 
-- **Goals**: The overarching mission of the project.
-- **Decisions**: A log of finalized architectural or logic choices.
-- **Open Tasks**: Shared todo-list for all active agents.
-- **Context Summary**: Compressed project memory.
+    ```bash
+    # Starts Next dev server, spawns backend, then launches Electron window
+    npm run dev
 
----
+    # If you only want the backend during development:
+    npm run backend
 
-## 🛠️ Advanced Usage (Legacy CLI)
+    # Start frontend only (alternate):
+    cd frontend && npm run dev
 
-For power users who prefer the terminal, the legacy CLI is still available:
+    # Launch electron directly (after build/install):
+    npm run electron
+    ```
 
-```bash
-| Command | Description |
-| :--- | :--- |
-| `/new "<task>"` | Create a new parallel AI session |
-| `/sessions` | List all active sessions |
-| `/switch <id> <model>` | Hot-swap a session's model |
-| `/state` | Dump the global intelligence state |
-| `/exit` | Terminate the CLI |
+    Run quick API test (spawns uvicorn and performs a sample request):
 
----
+    ```bash
+    python run_api.py
+    ```
 
-The system should feel like:
-- → ONE AI brain
-- → MANY parallel thinking processes
-- → ZERO interruption
-- → FULL control
+    Run CLI test harness:
 
-## License
+    ```bash
+    python cli/test_chat.py
+    ```
 
-MIT
+    ---
+
+    ## Project Overview
+
+    High-level components:
+    - `app/` — FastAPI application and backend orchestration logic (routers, core orchestrator, adapters for LLMs).
+    - `frontend/` — Next.js + React UI with components and services.
+    - `cli/` — Command-line helpers and test harnesses.
+    - `run_api.py` — Small helper that launches the backend and makes a sample request for quick local smoke-tests.
+
+    Key commands from `package.json`:
+    - `npm run dev` — development workflow (uses `concurrently` to run frontend and electron with a backend spawn).
+    - `npm run backend` — run only the FastAPI app via `uvicorn app.main:app --port 8000`.
+
+    ---
+
+    ## Development Notes
+    - The FastAPI app exposes REST endpoints under `/api` and WebSocket endpoints at `/ws/*` (see [app/main.py](app/main.py)).
+    - The frontend expects the backend at `http://localhost:8000` by default.
+    - Many adapters for LLM providers live under `app/adapters/` and can be configured via environment variables.
+
+    Testing & debugging:
+    - Use `python run_api.py` to sanity-check the backend and a sample chat request.
+    - Use `python cli/test_chat.py` to exercise the orchestrator end-to-end (local-only, uses synchronous test data).
+
+    ---
+
+    ## Contributing
+    - Open issues and PRs are welcome. For local development, follow the install steps above and run the backend and frontend individually to iterate quickly.
+
+    ## License
+
+    MIT

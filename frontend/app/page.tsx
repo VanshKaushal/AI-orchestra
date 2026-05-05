@@ -9,10 +9,12 @@ import InputBox from "../components/InputBox";
 import StatePanel from "../components/StatePanel";
 import WatchdogFeed from "../components/WatchdogFeed";
 import CommandPanel from "../components/CommandPanel";
+import SidePanel from "../components/SidePanel";
 import { PanelRightClose, PanelRightOpen } from "lucide-react";
 
 export default function OrchestraOS() {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [activePanel, setActivePanel] = useState<string | null>(null);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0a] text-white selection:bg-blue-500/30">
@@ -21,7 +23,12 @@ export default function OrchestraOS() {
 
       {/* CENTER PANEL: Main Chat Area */}
       <div className="flex flex-col flex-1 min-w-0 border-r border-zinc-800/50 relative">
-        <Header rightPanelOpen={rightPanelOpen} setRightPanelOpen={setRightPanelOpen} />
+        <Header 
+          rightPanelOpen={rightPanelOpen} 
+          setRightPanelOpen={setRightPanelOpen}
+          activePanel={activePanel}
+          setActivePanel={setActivePanel}
+        />
         {/* <SessionTabs /> */} {/* Assuming we might keep or conditionally render based on preference, but keeping it per rule DO NOT REMOVE LOGIC */}
         
         <div className="flex flex-col flex-1 overflow-hidden relative">
@@ -29,6 +36,9 @@ export default function OrchestraOS() {
           <InputBox />
         </div>
       </div>
+
+      {/* SIDE PANEL: Settings/Profile/Status */}
+      <SidePanel activePanel={activePanel} setActivePanel={setActivePanel} />
 
       {/* RIGHT PANEL: State & Watchdog */}
       <div 

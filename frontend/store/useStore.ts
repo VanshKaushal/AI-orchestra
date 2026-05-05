@@ -10,8 +10,10 @@ export interface AppState {
   sessionStates: Record<string, SessionState>;
   watchdogLogs: WatchdogLog[];
   isThinking: Record<string, boolean>;
+  user: { name: string; email: string; avatar?: string };
 
   // Actions
+  setUser: (user: { name: string; email: string; avatar?: string }) => void;
   setSessions: (sessions: Session[]) => void;
   addSession: (session: Session) => void;
   setActiveSessionId: (id: string) => void;
@@ -39,7 +41,9 @@ export const useStore = create<AppState>((set) => ({
   sessionStates: {},
   watchdogLogs: [],
   isThinking: {},
+  user: { name: "Vansh Kaushal", email: "vansh@orchestra.ai" },
 
+  setUser: (user) => set({ user }),
   setSessions: (sessions) => set({ 
     sessions: sessions.map((s: any) => ({
       id: s.session_id || s.id,
@@ -70,9 +74,9 @@ export const useStore = create<AppState>((set) => ({
     const sessionMessages = state.messages[sessionId] || [];
     
     // 1. Deduplication: Check if message with same ID already exists
-    const exists = sessionMessages.some(m => m.id === message.id);
+    const exists = message.id && sessionMessages.some(m => m.id === message.id);
     if (exists) {
-      // If it exists, we might want to update it (e.g. if isSending was true and now it's false)
+      // If it exists, update existing message and skip adding a duplicate
       return {
         messages: {
           ...state.messages,

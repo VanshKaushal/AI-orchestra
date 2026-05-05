@@ -7,7 +7,7 @@ import { Plus, MessageSquare, Settings, User, Share2 } from "lucide-react";
 import Link from "next/link";
 
 export default function Sidebar() {
-  const { sessions, activeSessionId, setActiveSessionId, addSession, setSessions } = useStore();
+  const { sessions, activeSessionId, setActiveSessionId, addSession, setSessions, user } = useStore();
 
   useEffect(() => {
     async function fetchSessions() {
@@ -92,13 +92,19 @@ export default function Sidebar() {
       </div>
 
       <div className="p-3 border-t border-zinc-800/50 mb-2 space-y-1">
+        <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
+          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+            {user.name.charAt(0)}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <div className="text-sm font-semibold text-zinc-100 truncate">{user.name}</div>
+            <div className="text-[11px] text-zinc-500 truncate">{user.email}</div>
+          </div>
+        </div>
+
         <button className="w-full flex items-center gap-3 px-3 py-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors text-sm">
           <Settings size={18} />
           Settings
-        </button>
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors text-sm">
-          <User size={18} />
-          Profile
         </button>
       </div>
     </div>

@@ -4,14 +4,16 @@ import toast from "react-hot-toast";
 
 export default function CommandPanel() {
   const handleCommand = async (cmd: string) => {
-    try {
-      const res = await runCommand(cmd);
+    const res = await runCommand(cmd);
+    if (res.success && res.data) {
       console.log("Command Success:", res.data);
-      alert(res.data.output);
-    } catch (err) {
-      console.error("Command Failed:", err);
-      alert("Failed to execute " + cmd);
+      alert(res.data.output || "Command executed successfully");
+    } else {
+      console.error("Command Failed:", res.error);
+      alert("Failed to execute " + cmd + ": " + (res.error || "Unknown error"));
     }
+
+
   };
 
   return (

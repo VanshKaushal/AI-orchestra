@@ -23,12 +23,12 @@ class WebSocketService {
     this.ws.onmessage = (message) => {
       try {
         const data = JSON.parse(message.data);
-        const eventType = data.type || data.event;
+        const eventType = data.type || data.event || "message"; // Default to 'message' if raw
         const payload = data.data || data.payload || data;
         
         console.log(`[WS] Event: ${eventType}`, payload);
 
-        if (eventType && this.handlers[eventType]) {
+        if (this.handlers[eventType]) {
           this.handlers[eventType].forEach(handler => handler(payload));
         }
       } catch (err) {
@@ -65,8 +65,13 @@ class WebSocketService {
       this.currentUrl = null;
     }
   }
+
+  public isConnected() {
+    return this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
 }
 
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000/ws";
+
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000";
 export const wsService = new WebSocketService();
 export { WS_BASE_URL };

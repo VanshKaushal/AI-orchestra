@@ -4,19 +4,57 @@ import { useState, KeyboardEvent, useRef, useEffect } from "react";
 import { ArrowUp, Paperclip } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 import { useStore } from "../store/useStore";
+import { uploadFile } from "../services/api";
 
 export default function InputBox() {
   const [content, setContent] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const { sendMessage } = useChat();
   const { activeSessionId } = useStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const sendingRef = useRef(false);
 
-  const handleSend = () => {
-    if (!content.trim() || !activeSessionId) return;
-    sendMessage(content);
-    setContent("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+  const handleSend = async () => {
+    if (!(content || "").trim() || !activeSessionId || isSending || sendingRef.current) return;
+    
+    setIsSending(true);
+    sendingRef.current = true;
+    
+    try {
+      await sendMessage(content);
+      setContent("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+    } finally {
+      setIsSending(false);
+      sendingRef.current = false;
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    try {
+      const response = await uploadFile(formData);
+      
+      if (response.status === 200) {
+        console.log("File uploaded:", response.data);
+      } else {
+        console.error("Upload failed");
+      }
+    } catch (error) {
+      console.error("File upload error:", error);
+    }
+    
+    // Reset file input
+    if (fileRef.current) {
+      fileRef.current.value = "";
     }
   };
 
@@ -44,9 +82,16 @@ export default function InputBox() {
     <div className="sticky bottom-0 bg-[#0a0a0a] px-6 py-4 pb-8 shrink-0">
       <div className="max-w-3xl mx-auto flex flex-col items-center">
         <div className="w-full relative flex items-end gap-2 bg-zinc-800 focus-within:bg-zinc-800 rounded-3xl px-4 py-2 transition-all">
+          <input
+            type="file"
+            ref={fileRef}
+            className="hidden"
+            onChange={handleFileUpload}
+          />
           <button 
+            onClick={() => fileRef.current?.click()}
             className="shrink-0 p-2 text-zinc-400 hover:text-zinc-100 rounded-full transition-colors mb-0.5"
-            title="Attach file (UI only)"
+            title="Attach file"
           >
             <Paperclip size={20} />
           </button>
@@ -63,7 +108,7 @@ export default function InputBox() {
           
           <button 
             onClick={handleSend}
-            disabled={!content.trim()}
+            disabled={!(content || "").trim() || isSending}
             className="shrink-0 p-2 bg-white text-zinc-900 rounded-full transition-all disabled:opacity-30 disabled:bg-zinc-600 disabled:text-zinc-400 mb-1"
           >
             <ArrowUp size={18} className="stroke-[2.5]" />

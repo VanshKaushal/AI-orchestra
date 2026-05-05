@@ -150,15 +150,16 @@ class Orchestrator:
             
             provider = self.router.get_fallback(provider)
         
+        error_log = f"[v1.1] All LLM providers failed. Last tried: {provider.value if provider else 'unknown'}. Original request: {original_provider.value}. Error: {switch_reason or 'No specific error'}"
         return (
             LLMResponse(
-                response="All LLM providers failed. Please check your configuration and try again.",
+                response=error_log,
                 tokens_used=0,
                 cost=0.0,
                 status="error",
-                provider=LLMProvider.OLLAMA
+                provider=original_provider
             ),
-            LLMProvider.OLLAMA,
+            original_provider,
             "all_providers_failed"
         )
 

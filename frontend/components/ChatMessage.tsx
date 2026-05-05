@@ -1,7 +1,10 @@
 import { Message } from "../types";
 import { Sparkles } from "lucide-react";
+import { useStore } from "../store/useStore";
 
 export default function ChatMessage({ message }: { message: Message }) {
+  const { currentModels, activeSessionId } = useStore();
+  const currentProvider = activeSessionId ? currentModels[activeSessionId] : "Orchestra";
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
 
@@ -29,11 +32,7 @@ export default function ChatMessage({ message }: { message: Message }) {
           </div>
 
           <div className="flex flex-col gap-1 w-full min-w-0">
-            {message.modelUsed && (
-              <div className="text-[11px] font-semibold tracking-wide text-zinc-500 mb-1">
-                {message.modelUsed}
-              </div>
-            )}
+
             <div className="text-zinc-200 leading-relaxed whitespace-pre-wrap">
               {message.content}
             </div>

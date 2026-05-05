@@ -12,16 +12,21 @@ export default function StatePanel() {
   const { goal, progress, logs } = useStateExplorer(activeSessionId || "");
 
   useEffect(() => {
+    let mounted = true;
     async function fetchState() {
-      try {
-        const { data } = await getState();
-        if (data) setGlobalState(data);
-      } catch (err) {
-        console.error("Failed to load initial state", err);
+      const res = await getState();
+      if (!mounted) return;
+      if (res.success && res.data) {
+        setGlobalState(res.data);
+      } else {
+        console.error("Failed to load initial state:", res.error);
       }
     }
     fetchState();
+    return () => { mounted = false; };
   }, [setGlobalState]);
+
+
 
   const activeSessionState = activeSessionId ? sessionStates[activeSessionId] : null;
 

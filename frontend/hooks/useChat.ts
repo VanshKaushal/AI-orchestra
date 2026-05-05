@@ -4,6 +4,12 @@ import { useEffect, useRef } from "react";
 import { useStore } from "../store/useStore";
 import { wsService, WS_BASE_URL } from "../services/websocket";
 import { sendMessage as apiSendMessage } from "../services/api";
+import { useAnalytics } from "../store/useAnalytics";
+
+function estimateTokens(text: string) {
+  return Math.ceil(text.length / 4);
+}
+
 
 export function useChat() {
   const { 
@@ -12,8 +18,16 @@ export function useChat() {
     setIsThinking, 
     addWatchdogLog,
     setGlobalState,
-    switchModel
+    switchModel,
+    currentModels
   } = useStore();
+  const { logRequest, logError } = useAnalytics();
+  const provider = activeSessionId ? currentModels[activeSessionId] : "OpenAI";
+
+  if (!provider) {
+    console.warn("Provider missing — using fallback");
+  }
+
 
   const receivedMessageIds = useRef<Set<string>>(new Set());
 
@@ -21,24 +35,25 @@ export function useChat() {
     if (!activeSessionId) return;
 
     // 1. Connect to session-specific channel
-    const sessionUrl = `${WS_BASE_URL}/session/${activeSessionId}`;
+    const sessionUrl = `${WS_BASE_URL}/ws/session/${activeSessionId}`;
     wsService.connect(sessionUrl);
 
     // 2. Event Handlers
     const handleNewMessage = (payload: any) => {
-      if (payload.session_id === activeSessionId) {
-        receivedMessageIds.current.add(payload.id);
+      const msgData = payload.data || payload;
+      if (payload.session_id === activeSessionId || msgData.session_id === activeSessionId) {
+        receivedMessageIds.current.add(msgData.id);
         
-        addMessage(payload.session_id, {
-          id: payload.id,
-          session_id: payload.session_id,
-          role: payload.role === "ai" ? "assistant" : (payload.role || "assistant"),
-          content: payload.content,
-          timestamp: payload.timestamp || Date.now(),
-          modelUsed: payload.provider
+        addMessage(activeSessionId, {
+          id: msgData.id,
+          session_id: activeSessionId,
+          role: msgData.role === "ai" ? "assistant" : (msgData.role || "assistant"),
+          content: msgData.content,
+          timestamp: msgData.timestamp || Date.now(),
+          modelUsed: msgData.provider
         });
         
-        setIsThinking(payload.session_id, false);
+        setIsThinking(activeSessionId, false);
       }
     };
 
@@ -76,7 +91,12 @@ export function useChat() {
   }, [activeSessionId, addMessage, addWatchdogLog, setIsThinking, switchModel]);
 
   const sendMessage = async (content: string) => {
-    if (!activeSessionId) return;
+    // 0. Safety Check
+    if (!activeSessionId) {
+      console.error("No session_id — blocking request");
+      return;
+    }
+
 
     // 1. Optimistic Update (User Message)
     const userMsgId = `u-${Date.now()}`;
@@ -93,8 +113,22 @@ export function useChat() {
 
     try {
       // 2. Call REST API
-      const res = await apiSendMessage(activeSessionId, content);
-      const { response, model, switch: didSwitch, message_id } = res.data;
+      const res = await apiSendMessage({
+        session_id: activeSessionId,
+        message: content,
+        provider: provider
+      });
+
+      if (!res.success || !res.data) {
+        throw new Error(res.error || "Failed to reach AI engine.");
+      }
+
+      if (!res.data.session_id) {
+        console.error("Critical: Response missing session_id", res.data);
+        throw new Error("Invalid server response: missing session_id");
+      }
+
+      const { model, switch: didSwitch, message_id, response } = res.data;
 
       // Mark user message as sent
       addMessage(activeSessionId, { ...userMsg, isSending: false });
@@ -110,26 +144,31 @@ export function useChat() {
         switchModel(activeSessionId, model);
       }
 
-      // 3. Fallback Logic: Check if WS already delivered the message
-      // Wait a short duration to give WS priority as requested
-      setTimeout(() => {
-        if (!receivedMessageIds.current.has(message_id)) {
-          console.log("[useChat] WS missed message, using REST fallback");
-          addMessage(activeSessionId, {
-            id: message_id,
-            session_id: activeSessionId,
-            role: "assistant",
-            content: response,
-            timestamp: Date.now(),
-            modelUsed: model
-          });
-          setIsThinking(activeSessionId, false);
-        }
-      }, 1000);
+      // 3. UI update strategy
+      const isWsConnected = wsService.isConnected();
+      
+      if (!isWsConnected) {
+        console.log("[useChat] WS disconnected, falling back to REST response");
+        addMessage(activeSessionId, {
+          id: message_id || `ai-${Date.now()}`,
+          session_id: activeSessionId,
+          role: "assistant",
+          content: response,
+          timestamp: Date.now(),
+          modelUsed: model
+        });
+        setIsThinking(activeSessionId, false);
+      } else {
+        console.log("[useChat] REST trigger successful, waiting for WebSocket response");
+      }
+      
+      logRequest(provider, estimateTokens(content));
 
     } catch (err: any) {
       console.error("Chat Error:", err);
+      logError();
       setIsThinking(activeSessionId, false);
+
       addMessage(activeSessionId, {
         id: `err-${Date.now()}`,
         session_id: activeSessionId,
@@ -138,7 +177,8 @@ export function useChat() {
         timestamp: Date.now()
       });
     }
-  };
 
+  };
   return { sendMessage };
+
 }

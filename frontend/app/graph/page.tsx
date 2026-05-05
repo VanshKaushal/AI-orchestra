@@ -7,7 +7,7 @@ import GraphCanvas from '../../components/GraphCanvas';
 import axios from 'axios';
 import { Share2, RefreshCw, Sliders, Info, X } from 'lucide-react';
 
-const BACKEND_URL = "http://127.0.0.1:8000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const typeColors: Record<string, string> = {
   goal: '#ef4444',    // red
@@ -28,8 +28,19 @@ export default function GraphPage() {
   const fetchGraphData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${BACKEND_URL}/graph`);
-      const { nodes: rawNodes, edges: rawEdges } = response.data;
+      const response = await fetch(`${BACKEND_URL}/graph`);
+      const text = await response.text();
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+
+      const data = JSON.parse(text);
+      if (!data || data.error) throw new Error(data?.error || data?.message || "Failed to fetch graph data");
+
+      const { nodes: rawNodes, edges: rawEdges } = data;
+
+
 
       // Map backend nodes to React Flow nodes
       const flowNodes = rawNodes.map((n: any, index: number) => ({
