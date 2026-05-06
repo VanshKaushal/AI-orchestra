@@ -10,9 +10,9 @@ function startBackend() {
   console.log("🚀 Starting FastAPI backend...");
   
   // Use 'python' or your environment's python command
-  // If .venv exists, you might want to use path.join(process.cwd(), '.venv', 'Scripts', 'python.exe') on Windows
-  const pythonCmd = "uvicorn"; 
-  const args = ["app.main:app", "--port", "8000"];
+  // Improved robustness: Use python -m uvicorn
+  const pythonCmd = process.platform === "win32" ? "python" : "python3";
+  const args = ["-m", "uvicorn", "app.main:app", "--port", "8000", "--host", "127.0.0.1"];
 
   backendProcess = spawn(pythonCmd, args, {
     cwd: process.cwd(),

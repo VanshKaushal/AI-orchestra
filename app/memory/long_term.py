@@ -6,6 +6,12 @@ from app.memory.embeddings import EmbeddingsGenerator
 from app.utils.logger import logger
 
 
+try:
+    import faiss
+    HAS_FAISS = True
+except ImportError:
+    HAS_FAISS = False
+
 class LongTermMemory:
     """FAISS-based vector database for long-term memory"""
 
@@ -15,7 +21,7 @@ class LongTermMemory:
         self.index = None
         self.metadata: List[Dict[str, Any]] = []
         
-        if self._faiss_available():
+        if HAS_FAISS:
             try:
                 self.index = faiss.IndexFlatL2(dimension)
                 logger.info(f"Initialized FAISS index with dimension {dimension}")
@@ -26,11 +32,7 @@ class LongTermMemory:
             self._fallback_index = {}
 
     def _faiss_available(self) -> bool:
-        try:
-            import faiss
-            return True
-        except ImportError:
-            return False
+        return HAS_FAISS
 
     def add_memory(self, user_id: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Add a memory to the vector store"""

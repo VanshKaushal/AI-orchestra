@@ -1,6 +1,7 @@
 import { useStore } from "../store/useStore";
 import { BrainCircuit, PanelRightClose, PanelRightOpen, HeartPulse, Settings, User } from "lucide-react";
 import ModelSwitcher from "./ModelSwitcher";
+import Link from "next/link";
 
 interface HeaderProps {
   rightPanelOpen?: boolean;
@@ -14,14 +15,14 @@ export default function Header({ rightPanelOpen, setRightPanelOpen, activePanel,
 
   return (
     <header className="h-[60px] bg-[#0a0a0a] flex items-center justify-between px-6 shrink-0 z-10 w-full relative border-b border-zinc-800/50">
-      <div className="flex items-center gap-3">
+      <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
         <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
           <BrainCircuit size={18} />
         </div>
         <h1 className="text-zinc-100 font-semibold text-[15px] tracking-wide">
           Orchestra <span className="text-zinc-500 font-normal">OS</span>
         </h1>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-3 text-sm">
         {activeSessionId && <ModelSwitcher />}

@@ -119,12 +119,16 @@ export function useChat() {
         provider: provider
       });
 
-      if (!res.success || !res.data) {
-        throw new Error(res.error || "Failed to reach AI engine.");
+      if (!res || !res.success || !res.data) {
+        throw new Error(res?.error || "Failed to reach AI engine.");
+      }
+      
+      const data = res.data as any; // Type casting for ease of access with checks
+      if (!data || typeof data !== 'object') {
+        throw new Error("Invalid response from server: not an object");
       }
 
-      const data = res.data;
-      if (!data?.session_id) {
+      if (!data.session_id) {
         console.error("Critical: Response missing session_id", data);
         throw new Error("Invalid server response: missing session_id");
       }

@@ -8,14 +8,17 @@ router = APIRouter()
 # Structure: { session_id: { "goal": str, "progress": int, "logs": List[str] } }
 STATE_STORE: Dict[str, Dict[str, Any]] = {}
 
+from app.utils.response import wrap_response
+
 @router.get("/state/{session_id}")
 async def get_state(session_id: str):
     """Retrieve the current state for a given session explorer."""
-    return STATE_STORE.get(session_id, {
+    data = STATE_STORE.get(session_id, {
         "goal": "Not specified",
         "progress": 0,
         "logs": ["System initialized", "Waiting for input..."]
     })
+    return wrap_response(data=data)
 
 def update_session_state(session_id: str, goal: str = None, progress: int = None, log: str = None):
     """Internal helper to update the state store safely."""

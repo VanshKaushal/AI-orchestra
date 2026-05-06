@@ -4,10 +4,10 @@
   "description": "Unified orchestration environment",
   "main": "main.js",
   "scripts": {
-    "dev": "concurrently \"npm run frontend\" \"wait-on http://localhost:3001 && npm run electron\"",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\" \"wait-on http://localhost:3001 && npm run electron\"",
     "electron": "electron .",
     "frontend": "cd frontend && npm run dev",
-    "backend": "uvicorn app.main:app --port 8000"
+    "backend": "python -m uvicorn app.main:app --port 8000"
   },
   "dependencies": {
     "concurrently": "^8.2.2"

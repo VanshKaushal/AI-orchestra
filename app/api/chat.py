@@ -5,6 +5,8 @@ from app.models.schemas import ChatRequest, ChatResponse, CommandRequest
 from app.core.orchestrator import Orchestrator
 from app.sessions.session_manager import session_manager
 from app.graph.event_store import log_event
+from app.utils.logger import logger
+from app.utils.response import wrap_response
 
 router = APIRouter()
 orchestrator = Orchestrator()
@@ -41,22 +43,23 @@ async def chat(request: ChatRequestExact):
 
         import uuid
         # result expected to have 'response', 'provider', 'fallback_triggered'
-        return ChatResponseExact(
+        data = ChatResponseExact(
             response=result.get("response", ""),
             model=str(result.get("provider", "ollama")),
             switch=result.get("fallback_triggered", False),
             session_id=request.session_id,
             message_id=str(uuid.uuid4())
         )
+        return wrap_response(data=data.dict())
     except Exception as e:
         logger.error(f"Chat failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return wrap_response(success=False, error=str(e))
 
 
 @router.get("/health")
 async def health():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    return wrap_response(data={"status": "healthy"})
 
 
 @router.get("/stats")
@@ -89,9 +92,9 @@ async def create_session(task: str, model: str = "ollama"):
     try:
         result = session_manager.create(task, model)
         log_event("session_created", result)
-        return result
+        return wrap_response(data=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return wrap_response(success=False, error=str(e))
 
 
 @router.get("/sessions")
@@ -101,22 +104,14 @@ async def list_sessions():
         from app.core.multi_session_orchestrator import multi_session_orchestrator
         sessions = multi_session_orchestrator.get_all_sessions()
         
-        print("Sessions:", sessions)
-        
-        if sessions is None:
-            return []
+        if not sessions:
+            return wrap_response(data=[])
 
-        # Force JSON safety and mapping
-        return [
-            {
-                "id": str(s.get("session_id", s.get("id", ""))),
-                "messages": s.get("messages", [])
-            }
-            for s in sessions
-        ]
+        # Return full session data including name, status, etc.
+        return wrap_response(data=sessions)
     except Exception as e:
-        print("ERROR /sessions:", e)
-        return []
+        logger.error(f"ERROR /sessions: {e}")
+        return wrap_response(success=False, error=str(e), data=[])
 
 
 @router.get("/sessions/{session_id}")
@@ -183,10 +178,10 @@ async def exact_create_session():
     """Create a new session (exact endpoint match) with safe fallback"""
     try:
         res = session_manager.create("Default Task", "ollama")
-        return res
+        return wrap_response(data=res)
     except Exception as e:
         print("ERROR /session/create:", e)
-        return {"error": str(e), "session_id": "fallback"}
+        return wrap_response(success=False, error=str(e), data={"session_id": "fallback"})
 
 
 
@@ -200,11 +195,11 @@ async def exact_switch_model(request: SwitchRequest):
     try:
         result = session_manager.switch_model(request.session_id, request.model)
         if not result:
-            return {"success": False, "error": "Session not found"}
-        return {"success": True, "model": request.model}
+            return wrap_response(success=False, error="Session not found")
+        return wrap_response(data={"success": True, "model": request.model})
     except Exception as e:
         print("ERROR /switch:", e)
-        return {"success": False, "error": str(e)}
+        return wrap_response(success=False, error=str(e))
 
 
 @router.get("/state")
@@ -214,19 +209,19 @@ async def exact_get_state():
         from app.core.multi_session_orchestrator import multi_session_orchestrator
         state = multi_session_orchestrator.get_state()
         
-        print("State:", state)
-        
-        if state is None:
-            return {"status": "ok", "sessions": 0}
+        if not state:
+            return wrap_response(data={"goal": "Initialize system", "progress": "0", "tasks": []})
 
-        # JSON safety and structured response
-        return {
-            "status": "ok",
-            "sessions": len(state.get("sessions", state.get("total_sessions", []))) if isinstance(state.get("sessions"), list) else state.get("total_sessions", 0)
+        # Align with frontend GlobalState type
+        data = {
+            "goal": state.get("orchestrator_state", {}).get("current_goal", "Active Orchestration"),
+            "progress": str(state.get("orchestrator_state", {}).get("completion_percentage", "0")),
+            "tasks": state.get("orchestrator_state", {}).get("pending_tasks", [])
         }
+        return wrap_response(data=data)
     except Exception as e:
-        print("ERROR /state:", e)
-        return {"status": "error", "sessions": 0}
+        logger.error(f"ERROR /state: {e}")
+        return wrap_response(success=False, error=str(e), data={"goal": "Error loading state", "progress": "0", "tasks": []})
 
 
 @router.post("/run")

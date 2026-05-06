@@ -1,4 +1,4 @@
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 console.log("API URL:", BASE_URL);
 
@@ -38,10 +38,17 @@ async function request<T>(
     }
 
     try {
-      const data = JSON.parse(text);
+      const json = JSON.parse(text);
+      
+      // If the server already provided the standard envelope, return it as is
+      if (json && typeof json === "object" && "success" in json) {
+        return json as ApiResponse<T>;
+      }
+
+      // Otherwise, wrap it for backward compatibility and internal standard
       return {
         success: true,
-        data,
+        data: json,
       };
     } catch (e) {
       console.error("JSON Parse Error:", e, "Raw text:", text);

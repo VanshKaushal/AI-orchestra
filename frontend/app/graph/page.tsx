@@ -24,7 +24,9 @@ const GraphCanvas3D = dynamic(
 );
 import { getClusters, Cluster } from '../../services/clusterEngine';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { BASE_URL } from '../../services/api';
+
+const BACKEND_URL = BASE_URL;
 
 const typeColors: Record<string, string> = {
   goal: '#ef4444',    // red
@@ -107,8 +109,12 @@ export default function GraphPage() {
         })
       );
       
-      const combinedNodes = results.flatMap(r => r.nodes || []);
-      const combinedEdges = results.flatMap(r => r.edges || []);
+      const combinedNodes = results.flatMap(r => (r && r.nodes) || []);
+      const combinedEdges = results.flatMap(r => (r && r.edges) || []);
+      
+      if (combinedNodes.length === 0) {
+        throw new Error("No graph data found in any session.");
+      }
       
       const processed = processGraph({ nodes: combinedNodes, edges: combinedEdges });
       const graphClusters = getClusters(processed.nodes);

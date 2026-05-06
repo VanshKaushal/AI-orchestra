@@ -1,85 +1,210 @@
-I am working on a Next.js (v16, App Router, Turbopack) frontend with a backend API (Node.js/Express or similar).
+I have a full-stack application:
 
-I am getting the following errors:
+- Frontend: Next.js (App Router)
+- Backend: Node.js/Express (REST API)
+- Communication: fetch()
+
+I am facing issues like:
 - "Failed to fetch"
-- "Failed to load initial state"
-- "TypeError: Cannot read properties of undefined (reading 'session_id')"
-- Errors inside useEffect/useCallback due to failed API calls
+- API calls failing
+- Undefined data errors (e.g., session_id)
+- Inconsistent frontend-backend behavior
 
-IMPORTANT CONSTRAINTS:
-- DO NOT rewrite the whole project
-- DO NOT change working features or UI
-- DO NOT refactor unrelated components
-- ONLY fix the data fetching, error handling, and undefined data issues
-- Keep changes minimal, isolated, and production-safe
+Your task is to act as a senior full-stack system auditor and perform a COMPLETE END-TO-END VERIFICATION.
 
-YOUR TASK (STRICTLY FOLLOW):
+DO NOT skip any step. DO NOT assume anything works.
 
-1. ROOT CAUSE IDENTIFICATION
-   - Precisely explain why "Failed to fetch" happens in real-world scenarios
-   - Map each error to its exact cause (network, backend down, bad JSON, etc.)
+---
 
-2. SAFE DEBUGGING CHECKLIST
-   - Give step-by-step checks in this exact order:
-     a) Verify backend is running
-     b) Verify API endpoint correctness
-     c) Check browser Network tab
-     d) Check CORS issues
-     e) Check response format (must be JSON)
+# 🔍 PHASE 1: BACKEND VERIFICATION (ISOLATED)
 
-3. PATCH-LEVEL FIXES (IMPORTANT)
-   - Modify ONLY fetch-related code
-   - Add:
-     - try/catch
-     - response.ok validation
-     - fallback values
-   - DO NOT restructure app
+1. Check if backend server is running
+   - Verify process is active
+   - Confirm port (e.g., 5000)
 
-Example format:
-BEFORE:
-<original code>
+2. Test backend independently (NO frontend)
+   - Open browser/Postman:
+     http://localhost:<port>
 
-AFTER:
-<minimally modified code>
+3. Verify ALL API endpoints:
+   - GET /sessions
+   - POST /sessions
+   - POST /message
+   - Any other used endpoint
 
-4. FIX UNDEFINED ERRORS SAFELY
-   - Add guards for:
-     - session_id
-     - API response objects
-   - Use optional chaining and fallback values
-   - Ensure app does NOT crash if API fails
+4. For each endpoint:
+   - Does it exist? (404 check)
+   - Does it return valid JSON?
+   - Does it return correct status codes?
 
-5. REACT HOOK SAFETY
-   - Fix useEffect/useCallback issues WITHOUT changing logic
-   - Prevent:
-     - repeated API calls
-     - state updates on undefined
-   - Keep dependency arrays correct
+5. Validate response format:
+   REQUIRED STRUCTURE:
+   {
+     "success": true,
+     "data": {...},
+     "error": null
+   }
 
-6. BACKEND COMPATIBILITY CHECK
-   - Show what the backend response MUST look like
+6. Check backend logs:
+   - Are requests reaching server?
+   - Any runtime errors?
+
+7. Check CORS:
+   - Is frontend origin allowed?
+   - Is cors() middleware enabled?
+
+---
+
+# 🌐 PHASE 2: NETWORK & CONNECTION CHECK
+
+1. Verify API base URL used in frontend
+   - Check environment variables
    - Example:
-     {
-       "session_id": "string",
-       "data": []
+     NEXT_PUBLIC_API_URL
+
+2. Test API manually in browser:
+   - Paste exact URL used in fetch()
+
+3. Open browser DevTools → Network tab:
+   For each request:
+   - Status code (200, 404, 500, blocked)
+   - Request URL correctness
+   - Response payload
+   - CORS errors
+
+4. Check protocol mismatch:
+   - frontend: https vs backend: http
+
+5. Check port mismatch
+
+---
+
+# ⚛️ PHASE 3: FRONTEND FETCH LAYER
+
+1. Locate ALL fetch() calls
+
+2. For each fetch:
+   VERIFY:
+   - Correct URL
+   - Correct method (GET/POST)
+   - Headers (Content-Type, auth)
+   - Body format (JSON.stringify)
+
+3. Ensure SAFE FETCH PATTERN:
+
+   try {
+     const res = await fetch(url);
+
+     if (!res.ok) {
+       throw new Error("API failed");
      }
 
-7. FAIL-SAFE LAYER
-   - Ensure:
-     - UI does not crash
-     - Errors are logged cleanly
-     - Fallback UI or empty state is handled
+     const data = await res.json();
+   } catch (err) {
+     console.error(err);
+   }
 
-8. DO NOT BREAK ANYTHING RULE
-   - Any fix must:
-     - NOT remove existing functionality
-     - NOT change API structure
-     - NOT introduce new dependencies unless absolutely necessary
+4. Check:
+   - No direct access like data.session_id without validation
+   - Use optional chaining or guards
 
-9. OUTPUT FORMAT
-   - Step-by-step explanation
-   - Minimal code patches only
-   - No unnecessary rewrites
+---
+
+# 🔄 PHASE 4: DATA CONTRACT VALIDATION
+
+1. Match frontend expectations vs backend response
+
+Example mismatch:
+Frontend expects:
+  data.session_id
+
+Backend sends:
+  data.id
+
+2. Ensure:
+   - Same field names
+   - Same nesting structure
+
+3. Verify required fields always exist
+
+---
+
+# ⚛️ PHASE 5: REACT STATE & HOOKS
+
+1. Check useEffect:
+   - Does it trigger infinite calls?
+   - Correct dependency array?
+
+2. Check:
+   - API calls inside useEffect
+   - State updates only after valid data
+
+3. Prevent:
+   - state updates on undefined
+   - multiple repeated fetch calls
+
+---
+
+# 🧱 PHASE 6: ERROR HANDLING SYSTEM
+
+1. Ensure:
+   - All API calls wrapped in try/catch
+   - Errors logged clearly
+
+2. UI must:
+   - Not crash
+   - Show fallback (loading / error)
+
+---
+
+# 🧪 PHASE 7: FULL FLOW TESTING
+
+Test complete flow:
+
+1. Load app
+2. Fetch sessions
+3. Create session
+4. Send message
+5. Load graph/state
+
+At each step:
+- Check Network tab
+- Check console
+- Check UI
+
+---
+
+# 🚨 PHASE 8: ROOT CAUSE IDENTIFICATION
+
+For every failure:
+- Identify EXACT failing layer:
+  - Backend down?
+  - Wrong endpoint?
+  - CORS?
+  - Bad response?
+  - Frontend misuse?
+
+Map error → root cause → fix
+
+---
+
+# 🧨 PHASE 9: OUTPUT REQUIREMENTS
+
+Provide:
+
+1. List of ALL issues found
+2. Exact root cause of each issue
+3. Minimal fixes (no rewrites)
+4. Corrected fetch examples
+5. Correct backend response format
+6. Final verification checklist
+
+---
 
 GOAL:
-Fix all fetch-related errors and undefined crashes while keeping the rest of the app completely intact and stable.
+Ensure full-stack system works perfectly:
+- Backend responds correctly
+- Frontend calls correctly
+- Data flows correctly
+- No "Failed to fetch"
+- No undefined crashes
