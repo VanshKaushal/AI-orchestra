@@ -23,13 +23,6 @@ async function request<T>(
 
     const text = await res.text();
 
-    if (!res.ok) {
-      return {
-        success: false,
-        error: `HTTP ${res.status}: ${text || res.statusText}`,
-      };
-    }
-
     if (!text || text.trim() === "") {
       return {
         success: true,
@@ -57,13 +50,13 @@ async function request<T>(
         error: "Server returned invalid JSON format",
       };
     }
-  } catch (err: any) {
-    console.error("Fetch Error:", err);
-    return {
-      success: false,
-      error: err.message || "Network request failed. Is the backend running?",
-    };
-  }
+    } catch (err: any) {
+      console.error("Request error:", err);
+      return {
+        success: false,
+        error: err.message || "Network request failed",
+      };
+    }
 }
 
 // TEST FUNCTION
@@ -120,10 +113,34 @@ export async function uploadFile(formData: FormData): Promise<ApiResponse<any>> 
       method: "POST",
       body: formData,
     });
+    
     const text = await res.text();
-    if (!res.ok) return { success: false, error: text };
-    return { success: true, data: JSON.parse(text) };
+    
+    if (!res.ok) {
+      return { 
+        success: false, 
+        error: `Upload failed: ${text || res.statusText}` 
+      };
+    }
+
+    try {
+      const data = JSON.parse(text);
+      return { 
+        success: data.success ?? true, 
+        data: data.data || data,
+        error: data.error || null
+      };
+    } catch (parseErr) {
+      return { 
+        success: false, 
+        error: "Server returned invalid response after upload" 
+      };
+    }
   } catch (err: any) {
-    return { success: false, error: err.message };
+    console.error("Upload fetch error:", err);
+    return { 
+      success: false, 
+      error: err.message || "Network error during upload" 
+    };
   }
 }

@@ -43,10 +43,12 @@ export default function InputBox() {
     try {
       const response = await uploadFile(formData);
       
-      if (response.status === 200) {
-        console.log("File uploaded:", response.data);
+      if (response.success && response.data) {
+        console.log("File uploaded successfully:", response.data);
+        // Optionally add a system message to the chat
       } else {
-        console.error("Upload failed");
+        console.error("Upload failed:", response.error);
+        alert(`Upload failed: ${response.error || "Unknown error"}`);
       }
     } catch (error) {
       console.error("File upload error:", error);

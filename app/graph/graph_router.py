@@ -8,25 +8,29 @@ from app.services.graph_ai_enricher import GraphAIEnricher
 
 router = APIRouter()
 
-@router.get("", response_model=GraphData)
+@router.get("")
 async def get_graph(session_id: Optional[str] = Query(None, description="Optional session ID to filter graph")):
     """
     Get the cognitive graph of AI reasoning events.
     Returns nodes and edges scaled by importance.
     """
-    nodes, edges = build_graph(session_id)
-    
-    # Score nodes
-    nodes = score_nodes(nodes, edges)
-    
-    # Performance Safety: Limit to top 100 most important nodes
-    nodes = sorted(nodes, key=lambda x: x.importance, reverse=True)[:100]
-    
-    # Filter edges to only include those where both nodes are in the final set
-    node_ids = {n.id for n in nodes}
-    filtered_edges = [e for e in edges if e.source in node_ids and e.target in node_ids]
-    
-    return GraphData(nodes=nodes, edges=filtered_edges)
+    from app.utils.response import wrap_response
+    try:
+        nodes, edges = build_graph(session_id)
+        
+        # Score nodes
+        nodes = score_nodes(nodes, edges)
+        
+        # Performance Safety: Limit to top 100 most important nodes
+        nodes = sorted(nodes, key=lambda x: x.importance, reverse=True)[:100]
+        
+        # Filter edges to only include those where both nodes are in the final set
+        node_ids = {n.id for n in nodes}
+        filtered_edges = [e for e in edges if e.source in node_ids and e.target in node_ids]
+        
+        return wrap_response(data={"nodes": nodes, "edges": filtered_edges})
+    except Exception as e:
+        return wrap_response(success=False, error=str(e), data={"nodes": [], "edges": []})
 
 @router.get("/ai/{session_id}")
 async def get_ai_graph(
@@ -38,20 +42,24 @@ async def get_ai_graph(
     Get the AI-enriched cognitive graph.
     Includes clusters and semantic edges.
     """
-    # Fetch existing graph via existing function
-    nodes, edges = build_graph(session_id)
-    
-    # Score nodes
-    nodes = score_nodes(nodes, edges)
-    
-    # Performance Safety: Limit to top 100 most important nodes
-    nodes = sorted(nodes, key=lambda x: x.importance, reverse=True)[:100]
-    
-    # Filter edges to only include those where both nodes are in the final set
-    node_ids = {n.id for n in nodes}
-    filtered_edges = [e for e in edges if e.source in node_ids and e.target in node_ids]
-    
-    # Pass graph -> graph_ai_enricher
-    enriched_graph = GraphAIEnricher.enrich_graph(nodes, filtered_edges, threshold=threshold, k=k)
-    
-    return enriched_graph
+    from app.utils.response import wrap_response
+    try:
+        # Fetch existing graph via existing function
+        nodes, edges = build_graph(session_id)
+        
+        # Score nodes
+        nodes = score_nodes(nodes, edges)
+        
+        # Performance Safety: Limit to top 100 most important nodes
+        nodes = sorted(nodes, key=lambda x: x.importance, reverse=True)[:100]
+        
+        # Filter edges to only include those where both nodes are in the final set
+        node_ids = {n.id for n in nodes}
+        filtered_edges = [e for e in edges if e.source in node_ids and e.target in node_ids]
+        
+        # Pass graph -> graph_ai_enricher
+        enriched_graph = GraphAIEnricher.enrich_graph(nodes, filtered_edges, threshold=threshold, k=k)
+        
+        return wrap_response(data=enriched_graph)
+    except Exception as e:
+        return wrap_response(success=False, error=str(e))

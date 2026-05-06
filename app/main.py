@@ -28,6 +28,7 @@ app.add_middleware(
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     """Handle file uploads for Issue 3"""
+    from app.utils.response import wrap_response
     try:
         # Create uploads directory if it doesn't exist
         os.makedirs("uploads", exist_ok=True)
@@ -36,10 +37,10 @@ async def upload_file(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
         
         logger.info(f"File uploaded: {file.filename}")
-        return {"filename": file.filename, "status": "uploaded", "path": file_path}
+        return wrap_response(data={"filename": file.filename, "status": "uploaded", "path": file_path})
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
-        return {"error": str(e), "status": "failed"}
+        return wrap_response(success=False, error=str(e), data={"status": "failed"})
 
 @app.get("/")
 def root():

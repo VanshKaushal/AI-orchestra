@@ -28,21 +28,23 @@ class ChatResponseExact(BaseModel):
 async def chat(request: ChatRequestExact):
     """Chat endpoint for AI Orchestra (Exact Match)"""
     try:
-        # Map to orchestrator logic
-        # We'll use session_id as user_id for the orchestrator implementation if needed, 
-        # or use the multi_session_orchestrator
         from app.core.multi_session_orchestrator import multi_session_orchestrator
         result = await multi_session_orchestrator.send_message(request.session_id, request.message)
         
+        # TYPE SAFETY FIX
+        if not isinstance(result, dict):
+             return wrap_response(success=False, error="Invalid response from orchestrator engine")
+
         log_event("message_processed", {"session_id": request.session_id, "message": request.message})
         log_event("response_generated", {
             "session_id": request.session_id,
             "response": result.get("response", ""),
-            "model": str(result.get("provider", "ollama"))
+            "model": str(result.get("provider", "ollama")),
+            "tokens_used": result.get("tokens_used", 0),
+            "cost": result.get("cost", 0.0)
         })
 
         import uuid
-        # result expected to have 'response', 'provider', 'fallback_triggered'
         data = ChatResponseExact(
             response=result.get("response", ""),
             model=str(result.get("provider", "ollama")),
@@ -104,10 +106,9 @@ async def list_sessions():
         from app.core.multi_session_orchestrator import multi_session_orchestrator
         sessions = multi_session_orchestrator.get_all_sessions()
         
-        if not sessions:
+        if not isinstance(sessions, list):
             return wrap_response(data=[])
 
-        # Return full session data including name, status, etc.
         return wrap_response(data=sessions)
     except Exception as e:
         logger.error(f"ERROR /sessions: {e}")
@@ -139,14 +140,19 @@ async def send_session_message(session_id: str, message: str):
     try:
         log_event("message_processed", {"session_id": session_id, "message": message})
         result = await multi_session_orchestrator.send_message(session_id, message)
+        
+        if not isinstance(result, dict):
+            return wrap_response(success=False, error="Invalid response from orchestrator")
+            
         log_event("response_generated", {
             "session_id": session_id,
             "response": result.get("response", ""),
             "model": result.get("provider", "ollama")
         })
-        return result
+        return wrap_response(data=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in send_session_message: {e}")
+        return wrap_response(success=False, error=str(e))
 
 
 @router.put("/sessions/{session_id}/model")
@@ -209,14 +215,19 @@ async def exact_get_state():
         from app.core.multi_session_orchestrator import multi_session_orchestrator
         state = multi_session_orchestrator.get_state()
         
-        if not state:
+        if not state or not isinstance(state, dict):
             return wrap_response(data={"goal": "Initialize system", "progress": "0", "tasks": []})
+
+        # Safe extraction from nested dict
+        orchestrator_state = state.get("orchestrator_state")
+        if not isinstance(orchestrator_state, dict):
+            orchestrator_state = {}
 
         # Align with frontend GlobalState type
         data = {
-            "goal": state.get("orchestrator_state", {}).get("current_goal", "Active Orchestration"),
-            "progress": str(state.get("orchestrator_state", {}).get("completion_percentage", "0")),
-            "tasks": state.get("orchestrator_state", {}).get("pending_tasks", [])
+            "goal": orchestrator_state.get("current_goal", "Active Orchestration"),
+            "progress": str(orchestrator_state.get("completion_percentage", "0")),
+            "tasks": orchestrator_state.get("pending_tasks", [])
         }
         return wrap_response(data=data)
     except Exception as e:

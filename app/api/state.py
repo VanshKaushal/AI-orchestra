@@ -13,12 +13,15 @@ from app.utils.response import wrap_response
 @router.get("/state/{session_id}")
 async def get_state(session_id: str):
     """Retrieve the current state for a given session explorer."""
-    data = STATE_STORE.get(session_id, {
-        "goal": "Not specified",
-        "progress": 0,
-        "logs": ["System initialized", "Waiting for input..."]
-    })
-    return wrap_response(data=data)
+    try:
+        data = STATE_STORE.get(session_id, {
+            "goal": "Not specified",
+            "progress": 0,
+            "logs": ["System initialized", "Waiting for input..."]
+        })
+        return wrap_response(data=data)
+    except Exception as e:
+        return wrap_response(success=False, error=str(e))
 
 def update_session_state(session_id: str, goal: str = None, progress: int = None, log: str = None):
     """Internal helper to update the state store safely."""

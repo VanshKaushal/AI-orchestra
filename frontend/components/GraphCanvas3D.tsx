@@ -141,13 +141,14 @@ export default function GraphCanvas3D({ nodes, edges, clusters, onNodeClick }: G
         `}
         nodeThreeObject={getNodeThreeObject}
         nodeThreeObjectExtend={false}
-        linkColor={(link: any) => link.type === 'semantic' ? '#888' : '#444'}
+        linkColor={(link: any) => link.type === 'semantic' ? '#aaa' : '#666'}
         linkWidth={(link: any) => link.type === 'semantic' ? 2 : 1}
-        linkDirectionalArrowLength={6}
-        linkDirectionalArrowRelPos={1}
-        linkDirectionalParticles={2}
+        linkDirectionalArrowColor={() => '#fff'}
+        linkDirectionalArrowLength={10}
+        linkDirectionalArrowRelPos={0.75}
+        linkDirectionalParticles={4}
         linkDirectionalParticleSpeed={0.005}
-        linkDirectionalParticleWidth={1.5}
+        linkDirectionalParticleWidth={2}
         linkCurvature={0.2}
         onNodeClick={onNodeClick}
         backgroundColor="#000"

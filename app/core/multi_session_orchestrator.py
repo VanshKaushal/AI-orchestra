@@ -64,7 +64,7 @@ class MultiSessionOrchestrator:
     def get_all_sessions(self) -> List[Dict[str, Any]]:
         """List all sessions safely (Phase 1 Fix)"""
         try:
-            if self.sessions is None:
+            if not self.sessions:
                 return []
             return [s.to_dict() for s in self.sessions.values()]
         except Exception as e:
@@ -223,6 +223,8 @@ class MultiSessionOrchestrator:
                 "message_id": assistant_msg.id,
                 "response": final_response_text,
                 "provider": response.provider.value,
+                "tokens_used": response.tokens_used,
+                "cost": response.cost,
                 "auto_answer": auto_answer,
                 "session": session.to_dict()
             }
@@ -298,12 +300,32 @@ class MultiSessionOrchestrator:
 
     def get_global_state(self) -> Dict[str, Any]:
         """Get global state across all sessions"""
-        return {
-            "total_sessions": len(self.sessions),
-            "running_sessions": sum(1 for s in self.sessions.values() if s.status == "running"),
-            "sessions": self.list_sessions(),
-            "orchestrator_state": self.orchestrator.get_state_summary()
-        }
+        try:
+            # Get raw state dict instead of string summary for API use
+            state_dict = self.orchestrator.state_manager.to_dict("default")
+            
+            return {
+                "total_sessions": len(self.sessions),
+                "running_sessions": sum(1 for s in self.sessions.values() if s.status == "running"),
+                "sessions": self.list_sessions(),
+                "orchestrator_state": {
+                    "current_goal": state_dict.get("goal", "Active Orchestration"),
+                    "completion_percentage": "50", # Mock progress
+                    "pending_tasks": state_dict.get("open_tasks", [])
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error in get_global_state: {e}")
+            return {
+                "total_sessions": 0,
+                "running_sessions": 0,
+                "sessions": [],
+                "orchestrator_state": {
+                    "current_goal": "System Initializing",
+                    "completion_percentage": "0",
+                    "pending_tasks": []
+                }
+            }
 
 
 multi_session_orchestrator = MultiSessionOrchestrator()
