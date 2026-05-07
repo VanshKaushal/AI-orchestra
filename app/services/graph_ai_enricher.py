@@ -118,7 +118,9 @@ class GraphAIEnricher:
                                     "source": source_id,
                                     "target": target_id,
                                     "weight": float(similarity),
-                                    "type": "semantic"
+                                    "type": "semantic",
+                                    "label": f"Semantic Link ({int(similarity * 100)}%)",
+                                    "strength": float(similarity)
                                 })
 
             # Combine existing and new edges

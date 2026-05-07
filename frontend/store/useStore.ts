@@ -30,7 +30,20 @@ export interface AppState {
   updateSessionState: (sessionId: string, state: Partial<SessionState>) => void;
   
   addWatchdogLog: (log: WatchdogLog) => void;
+  
+  // Graph State
+  graphMode: 'session' | 'global' | 'insight' | 'timeline';
+  graphSettings: {
+    showLabels: boolean;
+    showEdges: boolean;
+    physicsEnabled: boolean;
+    nodeGlow: boolean;
+    semanticStrength: number;
+  };
+  setGraphMode: (mode: 'session' | 'global' | 'insight' | 'timeline') => void;
+  updateGraphSettings: (settings: Partial<AppState['graphSettings']>) => void;
 }
+
 
 export const useStore = create<AppState>((set) => ({
   sessions: [],
@@ -120,4 +133,19 @@ export const useStore = create<AppState>((set) => ({
   addWatchdogLog: (log) => set((state) => ({
     watchdogLogs: [log, ...state.watchdogLogs].slice(0, 100) // keep last 100 logs
   })),
+
+  // Graph State Initializers
+  graphMode: 'session',
+  graphSettings: {
+    showLabels: true,
+    showEdges: true,
+    physicsEnabled: true,
+    nodeGlow: true,
+    semanticStrength: 0.5,
+  },
+  setGraphMode: (mode) => set({ graphMode: mode }),
+  updateGraphSettings: (settings) => set((state) => ({
+    graphSettings: { ...state.graphSettings, ...settings }
+  })),
 }));
+

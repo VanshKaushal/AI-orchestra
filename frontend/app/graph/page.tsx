@@ -3,517 +3,524 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
-import axios from 'axios';
-import { Share2, RefreshCw, Sliders, Info, X, Layers, MousePointer2, Anchor, ChevronDown, Check, PanelRightClose, PanelRightOpen, Activity, Cpu, AlertTriangle, TrendingUp, Zap } from 'lucide-react';
+import { 
+  Share2, RefreshCw, Sliders, Info, X, Layers, MousePointer2, Anchor, 
+  ChevronDown, Check, PanelRightClose, PanelRightOpen, Activity, Cpu, 
+  AlertTriangle, TrendingUp, Zap, Search, Filter, Play, History, Brain, Globe, Target
+} from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import dynamic from 'next/dynamic';
 import { processGraph } from '../../services/graphProcessor';
-import { sanitizeGraph } from '../../services/graphSanitizer';
+import { getClusters, Cluster } from '../../services/clusterEngine';
+import { BASE_URL } from '../../services/api';
 import { GraphNode, GraphEdge } from '../../types/graph';
+
+// SESSION COLOR GENERATOR
+const getSessionColor = (sessionId?: string) => {
+  if (!sessionId) return null;
+  let hash = 0;
+  for (let i = 0; i < sessionId.length; i++) {
+    hash = sessionId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash % 360);
+  const s = 70 + (Math.abs(hash % 20)); 
+  const l = 50 + (Math.abs(hash % 10)); 
+  return `hsl(${h}, ${s}%, ${l}%)`;
+};
 
 const GraphCanvas3D = dynamic(
   () => import('../../components/GraphCanvas3D'),
   { 
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-full text-neutral-400">
-        Loading Cognitive Graph...
+      <div className="flex items-center justify-center h-full text-zinc-500 font-mono tracking-widest uppercase animate-pulse">
+        Initializing Cognitive Engine...
       </div>
     )
   }
 );
-import { getClusters, Cluster } from '../../services/clusterEngine';
-
-import { BASE_URL } from '../../services/api';
 
 const BACKEND_URL = BASE_URL;
 
-const typeColors: Record<string, string> = {
-  goal: '#ef4444',    // red
-  task: '#eab308',    // yellow
-  response: '#3b82f6', // blue
-  model: '#71717a',     // gray
-  insight: '#f97316',  // orange
-  cluster: '#a855f7',  // purple (macro)
-};
-
 export default function GraphPage() {
-  const { activeSessionId, sessions } = useStore();
+  const { 
+    activeSessionId, 
+    sessions, 
+    graphMode, 
+    setGraphMode, 
+    graphSettings, 
+    updateGraphSettings 
+  } = useStore();
+  
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
-  const [importanceThreshold, setImportanceThreshold] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [zoom, setZoom] = useState(1);
-  const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
-  const [mode, setMode] = useState<"normal" | "ai">("normal");
-  const [threshold, setThreshold] = useState(0.7);
-  const [kClusters, setKClusters] = useState(5);
-  const [showMergeOptions, setShowMergeOptions] = useState(false);
-  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  const analytics = useMemo(() => {
-    const totalNodes = nodes.length;
-    const totalEdges = edges.length;
-    const totalTokens = nodes.reduce((acc, n) => acc + (n.metadata?.tokens_used || 0), 0);
-    const totalCost = nodes.reduce((acc, n) => acc + (n.metadata?.cost || 0), 0);
-    const errors = nodes.filter(n => n.metadata?.error || n.type === 'error').length;
-    
-    const typeDistribution = nodes.reduce((acc: any, n) => {
-      acc[n.type] = (acc[n.type] || 0) + 1;
-      return acc;
-    }, {});
-
-    return { totalNodes, totalEdges, totalTokens, totalCost, errors, typeDistribution };
-  }, [nodes, edges]);
-
-  const clusterColors = [
-    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
-    '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1'
-  ];
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isHUDCollapsed, setIsHUDCollapsed] = useState(false);
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
 
   const fetchGraphData = useCallback(async () => {
-    if (!activeSessionId) return;
     setLoading(true);
     try {
-      // Step 7: Session-based Isolation
-      const endpoint = mode === "ai" 
-        ? `${BACKEND_URL}/graph/ai/${activeSessionId}?threshold=${threshold}&k=${kClusters}`
-        : `${BACKEND_URL}/graph?session_id=${activeSessionId}`;
+      let endpoint = "";
+      
+      // Multi-session fidelity logic: if multiple are selected, we need the global dataset to filter from
+      const isMultiSelect = selectedSessions.length > 1;
+      const effectiveMode = isMultiSelect ? 'global' : graphMode;
+      
+      switch (effectiveMode) {
+        case 'session':
+          endpoint = `${BACKEND_URL}/graph?session_id=${activeSessionId}`;
+          break;
+        case 'global':
+          endpoint = `${BACKEND_URL}/graph`; 
+          break;
+        case 'insight':
+          endpoint = `${BACKEND_URL}/graph/ai/${activeSessionId}?threshold=0.85&k=3`;
+          break;
+        case 'timeline':
+          endpoint = `${BACKEND_URL}/graph?session_id=${activeSessionId}`;
+          break;
+        default:
+          endpoint = `${BACKEND_URL}/graph?session_id=${activeSessionId}`;
+      }
         
       const response = await fetch(endpoint);
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       
       const res = await response.json();
-      
-      if (!res || !res.success || !res.data) {
-        throw new Error(res?.error || "Failed to fetch graph data");
-      }
+      if (!res?.success || !res?.data) throw new Error("Invalid response");
 
       const data = res.data;
-
-      // Step 1: Data Sanitization & Step 6: Deduplication
       const processedGraph = processGraph(data);
-      
-      // Step 2: Clustering
       const graphClusters = getClusters(processedGraph.nodes);
+      
       setClusters(graphClusters);
-
       setNodes(processedGraph.nodes);
       setEdges(processedGraph.edges);
-      
-      console.log("SANITIZED GRAPH:", { nodes: processedGraph.nodes, edges: processedGraph.edges });
     } catch (error) {
-      console.error("Failed to fetch graph data:", error);
+      console.error("Fetch failed:", error);
     } finally {
       setLoading(false);
     }
-  }, [activeSessionId, mode, threshold, kClusters]);
-
-  const mergeSessions = useCallback(async () => {
-    setLoading(true);
-    try {
-      const targetSessions = sessions.filter(s => selectedSessionIds.includes(s.id));
-      
-      if (targetSessions.length === 0) {
-        throw new Error("No sessions selected for merging.");
-      }
-
-      const results = await Promise.all(
-        targetSessions.map(async (s) => {
-          try {
-            const r = await fetch(`${BACKEND_URL}/graph?session_id=${s.id}`);
-            if (!r.ok) return { nodes: [], edges: [] };
-            const res = await r.json();
-            return res?.data || { nodes: [], edges: [] };
-          } catch (e) {
-            console.error(`Failed to fetch graph for session ${s.id}:`, e);
-            return { nodes: [], edges: [] };
-          }
-        })
-      );
-      
-      const combinedNodes = results.flatMap(r => (r && r.nodes) || []);
-      const combinedEdges = results.flatMap(r => (r && r.edges) || []);
-      
-      if (combinedNodes.length === 0) {
-        throw new Error("No graph data found in any session.");
-      }
-      
-      const processed = processGraph({ nodes: combinedNodes, edges: combinedEdges });
-      const graphClusters = getClusters(processed.nodes);
-      
-      setNodes(processed.nodes);
-      setEdges(processed.edges);
-      setClusters(graphClusters);
-    } catch (error) {
-      console.error("Merge failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessions, selectedSessionIds]);
-
-  const toggleSessionSelection = (id: string) => {
-    setSelectedSessionIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
+  }, [activeSessionId, graphMode, selectedSessions]);
 
   useEffect(() => {
     fetchGraphData();
   }, [fetchGraphData]);
 
-  const onNodeClick = useCallback((node: any) => {
-    setSelectedNode(node);
-  }, []);
+  const uniqueSessions = useMemo(() => {
+    return sessions.map(s => ({
+      id: String(s.id),
+      name: s.name || `Session ${String(s.id).slice(-4)}`
+    }));
+  }, [sessions]);
 
-  const filteredNodes = (nodes || [])
-    .filter(Boolean)
-    .filter(n => (n.importance ?? 0) >= importanceThreshold);
-    
-  // Also filter edges to ensure they only connect existing nodes
-  const visibleNodeIds = new Set(filteredNodes.map(n => n.id));
-  const filteredEdges = (edges || [])
-    .filter(e => e && e.source && e.target)
-    .filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+  const filteredNodes = useMemo(() => {
+    return nodes
+      .filter(n => n.label.toLowerCase().includes(searchQuery.toLowerCase()))
+      .filter(n => (n.importance || 0) * 10 >= graphSettings.semanticStrength * 10)
+      .filter(n => selectedSessions.length === 0 || !n.session_id || selectedSessions.includes(n.session_id));
+  }, [nodes, searchQuery, graphSettings.semanticStrength, selectedSessions]);
+
+  const filteredEdges = useMemo(() => {
+    const nodeIds = new Set(filteredNodes.map(n => n.id));
+    return edges.filter(e => nodeIds.has(String(e.source)) && nodeIds.has(String(e.target)));
+  }, [edges, filteredNodes]);
+
+  const analytics = useMemo(() => {
+    const totalNodes = nodes.length;
+    const totalEdges = edges.length;
+    const errors = nodes.filter(n => n.type === 'error').length;
+    const typeDistribution = nodes.reduce((acc: any, n) => {
+      acc[n.type] = (acc[n.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    return { totalNodes, totalEdges, errors, typeDistribution };
+  }, [nodes, edges]);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-black text-white overflow-hidden font-sans">
+    <div className="h-screen w-full flex flex-col bg-[#020617] text-slate-200 overflow-hidden font-sans">
       <Header />
       
-      <div className="flex flex-1 overflow-hidden">
-        {/* LEFT SIDEBAR */}
-        <div className="w-64 border-r border-neutral-800 shrink-0 hidden lg:block">
-          <Sidebar />
-        </div>
+      <div className="flex flex-1 overflow-hidden relative">
+        <Sidebar />
 
-        {/* MAIN CONTENT AREA */}
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-[#050505]">
+        <main className="flex-1 flex flex-col relative overflow-hidden">
           
-          {/* TOOLBAR (Fixed Top) */}
-          <div className="h-16 border-b border-neutral-800 flex items-center px-6 gap-6 shrink-0 bg-[#0a0a0a] z-10 shadow-sm">
-            <div className="flex items-center gap-2 text-zinc-400">
-              <Share2 size={18} className="text-blue-500" />
-              <span className="text-sm font-semibold tracking-tight text-zinc-200">Cognitive Engine</span>
+          {/* PREMIUM FLOATING TOOLBAR */}
+          <div className="absolute top-6 left-6 right-6 md:top-8 md:left-8 md:right-8 h-auto md:h-14 z-20 flex flex-col md:flex-row items-center p-2 md:px-4 gap-3 md:gap-4 bg-slate-900/60 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between w-full md:w-auto md:pr-4 md:border-r md:border-white/5">
+              <div className="flex items-center gap-3">
+                <Brain className="text-blue-500 animate-pulse" size={18} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 whitespace-nowrap">Cognitive Brain</span>
+              </div>
+              
+              {/* SESSION SELECTOR (QUICK ACCESS) */}
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-950/30 rounded-lg border border-white/5 ml-4">
+                <div className="flex flex-col">
+                  <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">Fidelity</span>
+                  <button 
+                    onClick={() => setShowFilterDrawer(true)}
+                    className="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1 hover:text-emerald-400 transition-colors"
+                  >
+                    {selectedSessions.length === 0 ? 'Full Cortex' : `${selectedSessions.length} Active`}
+                    <ChevronDown size={8} className="text-slate-600" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="md:hidden flex gap-2">
+                 <button onClick={fetchGraphData} className="p-2 bg-slate-100 rounded-lg text-slate-900">
+                   <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                 </button>
+              </div>
             </div>
 
-            <div className="h-6 w-px bg-neutral-800 mx-2"></div>
-
-            <button 
-              onClick={fetchGraphData}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all text-xs font-bold disabled:opacity-50 shadow-lg shadow-blue-900/10 active:scale-95"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              GENERATE
-            </button>
-
-            <div className="relative">
-              <div className="flex bg-zinc-900 border border-white/10 rounded-lg overflow-hidden">
+            <div className="flex w-full md:w-auto overflow-x-auto no-scrollbar gap-1 p-1 bg-slate-950/50 rounded-xl border border-white/5">
+              {[
+                { id: 'session', icon: Target, color: 'bg-blue-600', text: 'SESSION' },
+                { id: 'global', icon: Globe, color: 'bg-amber-500', text: 'GLOBAL' },
+                { id: 'insight', icon: Zap, color: 'bg-purple-600', text: 'INSIGHT' },
+                { id: 'timeline', icon: History, color: 'bg-emerald-600', text: 'TIME' }
+              ].map(item => (
                 <button 
-                  onClick={mergeSessions}
-                  disabled={loading || selectedSessionIds.length < 2}
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-zinc-800 text-white transition-all text-xs font-bold disabled:opacity-50 active:scale-95 border-r border-white/10"
+                  key={item.id}
+                  onClick={() => setGraphMode(item.id as any)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all whitespace-nowrap ${graphMode === item.id ? `${item.color} text-white shadow-lg` : 'text-slate-500 hover:text-slate-300'}`}
                 >
-                  <Layers size={14} />
-                  MERGE {selectedSessionIds.length > 0 ? `(${selectedSessionIds.length})` : 'SESSIONS'}
+                  <item.icon size={12} /> {item.text}
                 </button>
-                <button 
-                  onClick={() => setShowMergeOptions(!showMergeOptions)}
-                  className="px-2 hover:bg-zinc-800 text-zinc-400 transition-all active:scale-95"
-                >
-                  <ChevronDown size={14} className={showMergeOptions ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                </button>
-              </div>
-
-              {showMergeOptions && (
-                <div className="absolute top-full mt-2 left-0 w-64 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50 p-2 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="px-3 py-2 text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800 mb-2">
-                    Select Sessions to Merge
-                  </div>
-                  <div className="space-y-1">
-                    {sessions.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => toggleSessionSelection(s.id)}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-xs transition-colors ${selectedSessionIds.includes(s.id) ? 'bg-blue-600/10 text-blue-400' : 'hover:bg-zinc-800 text-zinc-400'}`}
-                      >
-                        <span className="truncate pr-2">{s.name || s.id}</span>
-                        {selectedSessionIds.includes(s.id) && <Check size={14} />}
-                      </button>
-                    ))}
-                  </div>
-                  {sessions.length === 0 && (
-                    <div className="p-4 text-center text-zinc-600 text-[10px]">
-                      No active sessions found
-                    </div>
-                  )}
-                  <div className="mt-2 pt-2 border-t border-zinc-800 flex justify-between px-2">
-                    <button 
-                      onClick={() => setSelectedSessionIds(sessions.map(s => s.id))}
-                      className="text-[9px] font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-tighter"
-                    >
-                      Select All
-                    </button>
-                    <button 
-                      onClick={() => setSelectedSessionIds([])}
-                      className="text-[9px] font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-tighter"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
-            
-            <div className="flex items-center gap-4 ml-auto">
-              {/* Mode Toggle */}
-              <div className="flex bg-neutral-900 p-1 rounded-lg border border-neutral-800">
-                <button 
-                  onClick={() => setMode("normal")}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${mode === "normal" ? "bg-neutral-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-                >
-                  NORMAL
-                </button>
-                <button 
-                  onClick={() => setMode("ai")}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${mode === "ai" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-                >
-                  AI ENRICHED
-                </button>
-              </div>
 
-              {mode === "ai" && (
-                <div className="flex items-center gap-3 bg-neutral-900/50 px-3 py-1.5 rounded-full border border-neutral-800">
-                  <span className="text-[10px] text-zinc-500 font-black">SIMILARITY</span>
-                  <input 
-                    type="range" 
-                    min="0.5" 
-                    max="0.95" 
-                    step="0.05"
-                    value={threshold}
-                    onChange={(e) => setThreshold(Number(e.target.value))}
-                    className="w-24 accent-blue-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <span className="text-[10px] text-zinc-500 font-mono w-6 text-center">
-                    {threshold.toFixed(2)}
-                  </span>
-                </div>
-              )}
+            <div className="hidden md:flex flex-1 items-center bg-slate-950/30 rounded-xl px-3 border border-white/5">
+              <Search size={14} className="text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Search semantic memory..." 
+                className="bg-transparent border-none focus:ring-0 text-xs w-full py-2 px-3 placeholder:text-slate-600 text-slate-200"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
 
-              <div className="flex items-center gap-3 bg-neutral-900/50 px-3 py-1.5 rounded-full border border-neutral-800">
-                <Sliders size={14} className="text-zinc-500" />
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="10" 
-                  step="0.5"
-                  value={importanceThreshold}
-                  onChange={(e) => setImportanceThreshold(Number(e.target.value))}
-                  className="w-32 accent-blue-500 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-[10px] text-zinc-500 font-mono w-6 text-center">
-                  {importanceThreshold.toFixed(1)}
-                </span>
-              </div>
+            <div className="hidden md:flex items-center gap-2">
+              <button 
+                onClick={() => setShowFilterDrawer(!showFilterDrawer)}
+                className="p-2.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-slate-400 border border-white/5 transition-all active:scale-95"
+              >
+                <Filter size={16} />
+              </button>
+
+              <button 
+                onClick={fetchGraphData}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-white text-slate-950 rounded-xl transition-all text-[10px] font-black disabled:opacity-50 active:scale-95"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                SYNC
+              </button>
             </div>
           </div>
 
-          {/* GRAPH CANVAS AREA */}
-          <div className="flex-1 relative z-0">
-            {!loading && nodes.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-zinc-500 bg-[#050505]">
-                <div className="text-center">
-                  <Share2 size={48} className="mx-auto mb-4 opacity-20" />
-                  <p className="text-sm font-medium">No graph data available for this session.</p>
-                </div>
-              </div>
-            ) : (
-              <GraphCanvas3D 
-                nodes={filteredNodes} 
-                edges={filteredEdges}
-                clusters={clusters}
-                zoom={zoom}
-                onNodeClick={(node) => setSelectedNode(node)}
-              />
-            )}
+          {/* GRAPH RENDERING ENGINE */}
+          <div className="flex-1 relative">
+            <GraphCanvas3D 
+              nodes={filteredNodes} 
+              edges={filteredEdges}
+              clusters={clusters}
+              zoom={1}
+              onNodeClick={(node) => {
+                setSelectedNode(node);
+                if (window.innerWidth < 1024) setIsSidebarOpen(true);
+              }}
+            />
 
-            {/* LEGEND (Fixed Position Overlay) */}
-            <div className="absolute bottom-6 left-6 z-10 bg-black/60 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-black mb-3 pb-2 border-b border-white/5">Engine Layers</div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                {Object.entries(typeColors).map(([type, color]) => (
-                  <div key={type} className="flex items-center gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}></div>
-                    <span className="text-[10px] text-zinc-400 font-medium capitalize tracking-wide">{type}</span>
+            {/* LIVE ANALYTICS HUD */}
+            <div className={`
+              absolute bottom-8 right-8 md:bottom-12 md:right-12 transition-all duration-700 ease-in-out z-20
+              ${isHUDCollapsed ? 'w-12 h-12 md:w-16 md:h-16 rounded-2xl cursor-pointer hover:scale-110 active:scale-95' : 'w-[calc(100%-4rem)] md:w-80 h-auto rounded-[2.5rem]'}
+              bg-slate-900/80 backdrop-blur-3xl border border-white/10 shadow-2xl overflow-hidden
+            `}
+            onClick={() => isHUDCollapsed && setIsHUDCollapsed(false)}
+            >
+              {isHUDCollapsed ? (
+                <div className="w-full h-full flex items-center justify-center bg-blue-500/10 animate-pulse">
+                  <Activity size={20} className="text-blue-500" />
+                </div>
+              ) : (
+                <div className="p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500">
+                  <div className="flex items-center justify-between mb-4 md:mb-6">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <Activity size={16} className="text-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]" />
+                      <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Live Insights</span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsHUDCollapsed(true);
+                      }}
+                      className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-colors"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* ANALYTICS WINDOW (Bottom Right) */}
-            <div className="absolute bottom-14 right-10 z-10 w-64 bg-black/80 backdrop-blur-3xl border border-white/10 p-5 rounded-[1.5rem] shadow-2xl animate-in fade-in zoom-in duration-300">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <Activity size={14} className="text-blue-500" />
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-200 font-black">Live Insights</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                  <span className="text-[9px] text-emerald-500 font-bold uppercase">Active</span>
-                </div>
-              </div>
+                  <div className="hidden md:grid grid-cols-2 gap-8 mb-10">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Total Nodes</span>
+                      <div className="text-3xl font-black text-white tabular-nums">{analytics.totalNodes}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Active Links</span>
+                      <div className="text-3xl font-black text-blue-500 tabular-nums">{analytics.totalEdges}</div>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-5">
-                <div className="space-y-1">
-                  <div className="text-[9px] uppercase font-black text-zinc-600 flex items-center gap-1">
-                    <TrendingUp size={10} /> Nodes
-                  </div>
-                  <div className="text-xl font-black text-white tabular-nums">{analytics.totalNodes}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-[9px] uppercase font-black text-zinc-600 flex items-center gap-1">
-                    <Cpu size={10} /> Tokens
-                  </div>
-                  <div className="text-xl font-black text-blue-400 tabular-nums">{analytics.totalTokens.toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between bg-zinc-900/50 p-2.5 rounded-xl border border-white/5">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle size={12} className={analytics.errors > 0 ? 'text-red-500' : 'text-zinc-600'} />
-                    <span className="text-[10px] font-bold text-zinc-400">Failed Nodes</span>
-                  </div>
-                  <span className={`text-xs font-black ${analytics.errors > 0 ? 'text-red-500' : 'text-zinc-600'}`}>{analytics.errors}</span>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-[9px] uppercase font-black text-zinc-600 px-1">Structure Distribution</div>
-                  <div className="flex gap-1 h-1.5 w-full rounded-full overflow-hidden bg-zinc-900">
-                    {Object.entries(analytics.typeDistribution).map(([type, count]: [any, any]) => (
-                      <div 
-                        key={type}
-                        title={`${type}: ${count}`}
-                        style={{ 
-                          width: `${(count / analytics.totalNodes) * 100}%`,
-                          backgroundColor: typeColors[type] || '#555'
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                    {Object.entries(analytics.typeDistribution).map(([type, count]: [any, any]) => (
-                      <div key={type} className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: typeColors[type] || '#555' }}></div>
-                        <span className="text-[9px] text-zinc-500 font-bold">{count}</span>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase">Composition</span>
+                        <span className="hidden md:inline text-[9px] font-mono text-slate-400/50">{analytics.totalNodes} elements</span>
                       </div>
-                    ))}
+                      <div className="h-1 w-full bg-slate-950/50 rounded-full overflow-hidden flex">
+                        {Object.entries(analytics.typeDistribution).map(([type, count]: [any, any], idx) => (
+                          <div 
+                            key={type}
+                            style={{ 
+                              width: `${(count / analytics.totalNodes) * 100}%`,
+                              backgroundColor: ['#3b82f6', '#fbbf24', '#f97316', '#10b981', '#8b5cf6'][idx % 5]
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 md:pt-4 border-t border-white/5 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[7px] md:text-[8px] font-bold text-slate-700 uppercase">Engine Status</span>
+                        <span className="text-[9px] md:text-[11px] font-bold text-slate-400 tracking-tight italic">Optimizing neural pathways...</span>
+                      </div>
+                      <Play size={12} className="text-slate-600 hover:text-blue-500 cursor-pointer transition-colors" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+
+        {/* SESSION FILTER DRAWER (PREMIUM UI) */}
+        {showFilterDrawer && (
+          <div className="absolute inset-0 z-[60] flex justify-end">
+            <div 
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-500"
+              onClick={() => setShowFilterDrawer(false)}
+            />
+            <div className="relative w-full max-w-sm bg-slate-900/90 backdrop-blur-3xl border-l border-white/10 h-full shadow-2xl p-8 flex flex-col animate-in slide-in-from-right-full duration-700">
+              <div className="flex items-center justify-between mb-10">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-xl font-black text-white tracking-tight uppercase">Cognitive Filters</h2>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Isolate memory threads</p>
+                </div>
+                <button 
+                  onClick={() => setShowFilterDrawer(false)}
+                  className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-all"
+                >
+                  <RefreshCw size={20} className="rotate-45" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto no-scrollbar space-y-8">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Sessions</span>
+                    <button 
+                      onClick={() => setSelectedSessions([])}
+                      className="text-[9px] font-black text-blue-500 uppercase hover:text-blue-400 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {uniqueSessions.map(session => {
+                      const isSelected = selectedSessions.includes(session.id);
+                      const sessionColor = getSessionColor(session.id);
+                      return (
+                        <button
+                          key={session.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedSessions(selectedSessions.filter(id => id !== session.id));
+                            } else {
+                              setSelectedSessions([...selectedSessions, session.id]);
+                            }
+                          }}
+                          className={`
+                            group relative flex items-center justify-between p-4 rounded-2xl border transition-all duration-300
+                            ${isSelected 
+                              ? 'bg-blue-500/10 border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]' 
+                              : 'bg-slate-950/30 border-white/5 hover:border-white/20'}
+                          `}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div 
+                              className="w-3 h-3 rounded-full shadow-lg"
+                              style={{ backgroundColor: sessionColor || '#3b82f6', boxShadow: `0 0 10px ${sessionColor}` }}
+                            />
+                            <div className="flex flex-col items-start">
+                              <span className={`text-[10px] font-black uppercase tracking-tight ${isSelected ? 'text-white' : 'text-slate-400'}`}>
+                                {session.name}
+                              </span>
+                              <span className="text-[8px] text-slate-600 font-bold uppercase">ID: {session.id.slice(-6)}</span>
+                            </div>
+                          </div>
+                          <div className={`
+                            w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                            ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-transparent'}
+                          `}>
+                            <Target size={10} strokeWidth={4} />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-white/5 flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[8px] uppercase font-black text-zinc-700">Compute Cost</span>
-                  <span className="text-[11px] font-mono font-black text-emerald-500/80">${analytics.totalCost.toFixed(4)}</span>
-                </div>
-                <Zap size={14} className="text-yellow-500/50" />
+              <div className="mt-auto pt-8 border-t border-white/5">
+                <button 
+                  onClick={() => setShowFilterDrawer(false)}
+                  className="w-full py-4 bg-white text-slate-950 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+                >
+                  Apply Perspective
+                </button>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Step 9: Interaction Controls */}
-            <div className="absolute top-6 right-6 z-10 flex flex-col gap-2">
+        {/* PREMIUM SIDE PANEL (NODE INSPECTOR) */}
+        <div className={`
+          fixed inset-y-0 right-0 z-[100] lg:relative lg:z-30 transition-all duration-500 ease-in-out border-l border-white/5 bg-[#020617] 
+          ${isSidebarOpen ? 'w-full md:w-96 translate-x-0' : 'w-0 translate-x-full lg:w-0 overflow-hidden border-none'}
+        `}>
+          <div className="w-full md:w-96 h-full flex flex-col">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between bg-slate-900/10">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center">
+                  <Brain size={16} className="text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-white">Inspector</h3>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">Semantic Lineage</p>
+                </div>
+              </div>
               <button 
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className={`p-3 border border-white/10 rounded-xl transition-all ${isSidebarOpen ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}
-                title={isSidebarOpen ? "Close Details" : "Open Details"}
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-2 hover:bg-slate-800 rounded-xl text-slate-500 transition-all"
               >
-                {isSidebarOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+                <X size={18} />
               </button>
-              <button className="p-3 bg-zinc-900 border border-white/10 rounded-xl hover:bg-zinc-800 text-zinc-400" title="Focus Mode">
-                <MousePointer2 size={18} />
-              </button>
-              <button className="p-3 bg-zinc-900 border border-white/10 rounded-xl hover:bg-zinc-800 text-zinc-400" title="Pin Node">
-                <Anchor size={18} />
-              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 scrollbar-hide">
+              {!selectedNode ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+                  <MousePointer2 size={32} className="text-slate-600" />
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select a node to inspect</p>
+                </div>
+              ) : (
+                <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
+                  <section>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                        {selectedNode.type}
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-600">{selectedNode.id.split('_').pop()}</span>
+                    </div>
+                    <h1 className="text-base md:text-lg font-black text-white leading-tight italic">
+                      "{selectedNode.label}"
+                    </h1>
+                  </section>
+
+                  <div className="grid grid-cols-2 gap-4 md:gap-8">
+                    <section className="space-y-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Importance</span>
+                      <div className="text-2xl md:text-3xl font-black text-white tracking-tighter">
+                        {((selectedNode.importance || 0) * 100).toFixed(0)}%
+                      </div>
+                    </section>
+                    <section className="space-y-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Relevance</span>
+                      <div className="text-2xl md:text-3xl font-black text-amber-500 tracking-tighter">
+                        {((selectedNode.relevanceScore || 0) * 100).toFixed(0)}%
+                      </div>
+                    </section>
+                  </div>
+
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Layers size={14} className="text-slate-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Semantic Context</span>
+                    </div>
+                    <div className="bg-slate-900/50 rounded-2xl border border-white/5 p-4 md:p-5 space-y-4">
+                      {selectedNode.metadata?.summary ? (
+                        <p className="text-xs text-slate-400 leading-relaxed italic">
+                          {selectedNode.metadata.summary}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-600 italic">No semantic summary available for this memory node.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Activity size={14} className="text-slate-600" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Metadata Payload</span>
+                    </div>
+                    <div className="bg-slate-950 rounded-2xl border border-white/5 p-4 overflow-hidden overflow-x-auto">
+                      <pre className="text-[9px] md:text-[10px] font-mono text-emerald-500/80 leading-relaxed">
+                        {JSON.stringify(selectedNode.metadata || {}, null, 2)}
+                      </pre>
+                    </div>
+                  </section>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 md:p-8 bg-slate-950/30 border-t border-white/5">
+              <div className="flex gap-4 items-start">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <Info size={16} className="text-blue-500" />
+                </div>
+                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
+                  Cognitive nodes represent synthesized intelligence from the AI Orchestra engine. Semantic links are established via vector similarity.
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR (Details Panel) */}
-        {isSidebarOpen && (
-          selectedNode ? (
-          <div className="w-80 border-l border-neutral-800 shrink-0 bg-[#0a0a0a] flex flex-col h-full animate-in slide-in-from-right duration-300 shadow-2xl z-20">
-            <div className="p-5 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/20">
-              <div className="flex items-center gap-3">
-                <div className="w-3.5 h-3.5 rounded-sm shadow-lg" style={{ backgroundColor: typeColors[selectedNode.type] || '#555', boxShadow: `0 0 12px ${typeColors[selectedNode.type]}44` }}></div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-100">{selectedNode.type} ID: {selectedNode.id.split('_').pop()}</h3>
-              </div>
-              <button 
-                onClick={() => setSelectedNode(null)}
-                className="p-1.5 hover:bg-neutral-800 rounded-full text-zinc-500 transition-all active:scale-90"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
-              <section>
-                <label className="text-[10px] uppercase font-black tracking-widest text-zinc-600 block mb-3">Label</label>
-                <div className="text-sm leading-relaxed text-zinc-200 bg-neutral-900/50 p-4 rounded-xl border border-neutral-800/50 italic font-medium">
-                  "{selectedNode.label}"
-                </div>
-              </section>
-
-              <div className="grid grid-cols-2 gap-6">
-                <section>
-                  <label className="text-[10px] uppercase font-black tracking-widest text-zinc-600 block mb-2">Importance</label>
-                  <div className="text-xl text-blue-400 font-black tracking-tighter tabular-nums drop-shadow-sm">
-                    {selectedNode.importance.toFixed(2)}
-                  </div>
-                </section>
-                <section>
-                  <label className="text-[10px] uppercase font-black tracking-widest text-zinc-600 block mb-2">Logged At</label>
-                  <div className="text-xs text-zinc-400 font-mono font-bold">
-                    {new Date(selectedNode.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </div>
-                </section>
-              </div>
-
-              <section>
-                <label className="text-[10px] uppercase font-black tracking-widest text-zinc-600 block mb-3">Raw Metadata</label>
-                <div className="relative group">
-                   <pre className="text-[10px] bg-black p-5 rounded-2xl border border-neutral-800 text-emerald-500/80 overflow-x-auto font-mono leading-relaxed scrollbar-hide shadow-inner">
-                    {JSON.stringify(selectedNode.metadata, null, 2)}
-                  </pre>
-                  <div className="absolute inset-0 rounded-2xl border border-white/5 pointer-events-none group-hover:border-white/10 transition-colors"></div>
-                </div>
-              </section>
-            </div>
-
-            <div className="p-6 bg-neutral-900/30 border-t border-neutral-800">
-              <div className="text-[10px] leading-relaxed text-zinc-500 flex gap-3 items-start">
-                <Info size={14} className="shrink-0 text-blue-500" />
-                <p>Nodes are automatically generated based on real-time AI reasoning events captured by the orchestra engine.</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="w-80 border-l border-neutral-800 shrink-0 bg-[#0a0a0a] flex flex-col items-center justify-center p-8 text-center bg-[radial-gradient(circle_at_center,rgba(24,24,27,1)_0%,rgba(9,9,11,1)_100%)]">
-            <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center mb-6 border border-neutral-800 shadow-inner">
-              <Share2 size={24} className="text-zinc-700" />
-            </div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-2">No Node Selected</h3>
-            <p className="text-[11px] text-zinc-700 leading-relaxed font-medium">Click on any reasoning node in the canvas to inspect cognitive links and metadata.</p>
-          </div>
-        ))}
+        {/* TOGGLE SIDE PANEL BUTTON */}
+        {!isSidebarOpen && (
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute right-6 md:right-10 top-1/2 -translate-y-1/2 z-40 p-3 md:p-5 bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all shadow-2xl hover:scale-105 active:scale-95"
+          >
+            <PanelRightOpen size={24} />
+          </button>
+        )}
       </div>
     </div>
   );
 }
+

@@ -14,7 +14,7 @@ export default function Header({ rightPanelOpen, setRightPanelOpen, activePanel,
   const { activeSessionId } = useStore();
 
   return (
-    <header className="h-[60px] bg-[#0a0a0a] flex items-center justify-between px-6 shrink-0 z-10 w-full relative border-b border-zinc-800/50">
+    <header className="h-[60px] bg-[#0a0a0a] flex items-center justify-between px-6 shrink-0 z-50 w-full relative border-b border-zinc-800/50">
       <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
         <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
           <BrainCircuit size={18} />
