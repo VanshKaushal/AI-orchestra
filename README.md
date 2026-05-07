@@ -1,303 +1,160 @@
-# AI Orchestra OS (V3)
+# 🎼 AI Orchestra Desktop (V4)
 
-A unified AI system where a SINGLE CHAT can seamlessly switch across multiple LLMs, MULTIPLE AI SESSIONS can run in parallel, WATCHDOG agents auto-resolve LLM questions, and all sessions share a global project-level intelligence state.
+[![Electron](https://img.shields.io/badge/Desktop-Electron-blue)]()
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js-black)]()
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-green)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+**AI Orchestra Desktop** is a high-performance, multi-LLM orchestration environment. It transforms complex engineering tasks into a streamlined desktop experience where you can manage parallel AI sessions, visualize project intelligence in a **Living 3D Memory Cortex**, and trace the **Universal Causal Lineage** of every AI reasoning chain with absolute precision.
 
-- **Single Chat Continuity** - Switch between LLMs (auto + manual) with no context loss
-- **Multi-Session Parallel Execution** - Run multiple AI sessions simultaneously
-- **Watchdog Automation** - Auto-answer LLM questions without user interruption
-- **Command Execution** - Run shell commands asynchronously from any session
-- **Policy-Driven Routing** - Centralized management of routing rules and fallback chains
-- **Local Models Priority** - Use Ollama by default to minimize cost
-- **Global Project Intelligence** - All sessions share structured state
-- **Quality Escalation** - Auto-escalate weak responses to better models
+---
 
-## Architecture
+## ✨ Key Features
 
-```
-ai_orchestra/
-├── app/
-│   ├── main.py                 # FastAPI entry point
-│   ├── api/chat.py             # REST endpoints
-│   ├── core/
-│   │   ├── orchestrator.py     # Main orchestration engine
-│   │   ├── multi_session_orchestrator.py  # Parallel session manager
-│   │   ├── router.py           # LLM selection logic
-│   │   ├── policy_engine.py    # Centralized routing policies
-│   │   ├── state_manager.py    # Conversation state (CORE)
-│   │   ├── context_builder.py  # Context reconstruction
-│   │   ├── switch_engine.py    # Auto + manual switching
-│   │   ├── watchdog.py         # Auto-answer questions
-│   │   ├── command_runner.py   # Async background execution
-│   │   ├── quality_checker.py  # Response validation
-│   │   └── usage_tracker.py    # Cost tracking
-│   ├── sessions/
-│   │   └── session_manager.py  # Session CRUD operations
-│   ├── adapters/
-│   │   ├── base_adapter.py     # Adapter contract
-│   │   ├── openai.py           # OpenAI GPT
-│   │   ├── anthropic.py        # Claude
-│   │   └── ollama.py           # Local LLM
-│   ├── memory/
-│   │   ├── short_term.py       # Redis/history
-│   │   └── long_term.py        # FAISS/vector
-│   └── models/
-│       ├── schemas.py          # Pydantic models
-│       └── state.py            # Conversation state
-├── cli/chat.py                 # Interactive multi-session CLI
-├── .env.example                # Environment template
-├── requirements.txt           # Dependencies
-└── README.md                  # This file
+- 🖥️ **Native Desktop Experience** - High-performance wrapper powered by Electron.
+- 🧠 **Living AI Memory Cortex** - A production-grade 3D visualization engine mapping your AI's collective intelligence.
+- ⛓️ **Universal Causal Lineage** - Explicitly trace the path from **Session** ➔ **Task** ➔ **LLM** ➔ **Output**.
+- 🔭 **Deep Zoom Navigation** - Microscopic interaction with nodes and macroscopic "God View" of the entire network.
+- 🎯 **Fidelity Session Selector** - Granular control to isolate or combine specific cognitive threads in the graph.
+- 🚀 **One-Command Setup** - Unified project lifecycle with a single `npm run dev` command.
+- ⚡ **Seamless Model Switching** - Hot-swap between Local (Ollama) and Cloud (OpenAI/Anthropic/Gemini) models.
+- 🐕 **Watchdog Automation** - Background agents that auto-resolve low-level LLM questions.
+- 🎨 **Premium Aesthetics** - High-contrast solid shaders, neon pointers, and glassmorphic HUD interfaces.
+
+---
+
+## 🏗️ Architecture
+
+The system operates as a unified triad, synchronized by the Electron Main Process:
+
+```mermaid
+graph TD
+    subgraph "Desktop Application (Electron)"
+        Main["Main Process (main.js)"]
+        UI["Frontend (Next.js @ :3001)"]
+        API["Backend (FastAPI @ :8000)"]
+    end
+
+    Main -->|Spawns| API
+    Main -->|Hosts| UI
+    UI -->|REST/WS| API
+    API -->|Memory| Redis["Redis (Short-term)"]
+    API -->|Vector| FAISS["FAISS (Long-term)"]
+    API -->|Synthesize| Graph["3D Cognitive Cortex (GraphRAG)"]
 ```
 
-## Installation
+---
 
-1. **Install dependencies:**
+## 🧠 Cognitive Graph Topology
+
+The "Living AI Memory Cortex" is a high-fidelity tracing engine that visualizes the **Universal Causal Lineage** of your AI orchestration.
+
+### 🎨 Semantic Color Code
+- 🟠 **Task (Orange)**: The intent or objective (e.g., User Prompt).
+- 🟡 **LLM (Gold)**: The intelligence hub (e.g., GPT-4, Claude 3).
+- 🟢 **Output (Green)**: The result or synthesized knowledge.
+- 🔵 **Session (Cyan)**: The conversational context container.
+- 🔴 **Error (Red)**: Critical system or reasoning failures.
+
+### ⛓️ Universal Causal Chain
+The system enforces a rigid sequential relationship to ensure logical tracing:
+**Session** ➔ **Task** ➔ **LLM Hub** ➔ **Final Output**
+
+---
+
+## 🛠️ System Requirements
+
+Before installing, ensure you have the following installed:
+
+- **Node.js**: v18.0 or higher (v20+ recommended)
+- **Python**: 3.11 or higher
+- **Redis**: Required for short-term memory (Can run locally via Docker or native install)
+- **Git**: For version control
+
+---
+
+## 📦 Dependency Installation
+
+The project is divided into three main parts. You need to install dependencies for each.
+
+### 1. Root (Electron & Orchestration)
+Used for the desktop wrapper and dev server management.
 ```bash
+npm install
+```
+*Key Dependencies: `electron`, `concurrently`, `wait-on`*
+
+### 2. Frontend (Next.js)
+The React-based user interface.
+```bash
+cd frontend
+npm install
+cd ..
+```
+*Key Dependencies: `next`, `react`, `framer-motion`, `three`, `react-force-graph-3d`, `zustand`*
+
+### 3. Backend (FastAPI)
+The Python orchestration engine. It is recommended to use a virtual environment.
+```bash
+# Optional: Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+
+# Install dependencies
 pip install -r requirements.txt
 ```
+*Key Dependencies:*
+- **Web Framework:** `fastapi`, `uvicorn`, `pydantic`
+- **AI/LLM:** `openai`, `anthropic`, `sentence-transformers`
+- **Memory/Data:** `redis`, `faiss-cpu`, `numpy`, `scikit-learn`
+- **Utilities:** `python-dotenv`, `httpx`
 
-2. **Set up environment:**
+---
+
+## ⚙️ Configuration
+
+1. **Environment Variables**: Copy the example file and fill in your API keys.
+   ```bash
+   cp .env.example .env
+   ```
+2. **Key Variables**:
+   - `OPENAI_API_KEY`: For GPT-4o/GPT-3.5
+   - `ANTHROPIC_API_KEY`: For Claude 3.5 Sonnet/Opus
+   - `GEMINI_API_KEY`: For Google Gemini models
+   - `REDIS_URL`: Defaults to `redis://localhost:6379`
+
+---
+
+## 🚀 Running the Application
+
+### Development Mode (Recommended)
+Starts the backend, frontend, and Electron window simultaneously:
 ```bash
-cp .env.example .env
-# Edit .env with your API keys
+npm run dev
 ```
 
-3. **Install Ollama (for local LLM):**
-```bash
-# macOS
-brew install ollama
+### Individual Components
+- **Backend Only**: `npm run backend` (Runs at `http://localhost:8000`)
+- **Frontend Only**: `cd frontend && npm run dev` (Runs at `http://localhost:3001`)
+- **Electron Only**: `npm run electron`
 
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
+### Quick Tests
+- **API Smoke Test**: `python run_api.py` (Verifies backend connectivity)
+- **CLI Chat Test**: `python cli/test_chat.py` (Tests orchestrator logic)
 
-# Windows: Download from https://ollama.com
-```
+---
 
-4. **Start Ollama:**
-```bash
-ollama serve
-# In another terminal:
-ollama pull mistral
-```
+## 📁 Project Structure
 
-5. **Start Redis (optional):**
-```bash
-# Docker
-docker run -d -p 6379:6379 redis
+- `app/` — FastAPI application (Routers, Orchestrator, LLM Adapters).
+- `frontend/` — Next.js + React UI source code.
+- `cli/` — CLI helpers and diagnostic tools.
+- `main.js` — Electron main process entry point.
+- `requirements.txt` — Python backend dependencies.
+- `package.json` — Root-level scripts and Electron configuration.
 
-# Or install locally
-```
+---
 
-## Usage
+## 📜 License
 
-### Start the API Server
-
-```bash
-uvicorn app.main:app --reload
-```
-
-API will be available at `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
-
-### Start the CLI
-
-```bash
-python cli/chat.py
-```
-
-### CLI Commands
-
-```
-/new "<task>"           - Create new session
-/sessions               - List all sessions
-/msg <id> "<message>"   - Send message to session
-/switch <id> <model>    - Switch model for session
-/use <id>               - Set active session
-/state                  - Show global state
-/run "<command>"        - Run background shell command
-/exit                   - Exit
-```
-
-### API Endpoints
-
-```bash
-# Chat
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hello!", "user_id": "user1"}'
-
-# Health check
-curl http://localhost:8000/api/health
-
-# Get stats
-curl http://localhost:8000/api/stats
-
-# Get conversation state
-curl http://localhost:8000/api/state/user1
-
-# Manual switch
-curl -X POST http://localhost:8000/api/switch/user1?provider=openai
-
-# Run shell command
-curl -X POST "http://localhost:8000/api/run?command=ls"
-```
-
-## Global State Design (THE CORE)
-
-The system maintains ONE shared project-level state:
-
-```python
-{
-  "goal": string,           # What user is trying to accomplish
-  "context_summary": string,# Accumulated context
-  "decisions": [string],    # Decisions made during conversation
-  "open_tasks": [string],   # Pending tasks
-  "conversation_style": {
-    "tone": "professional",
-    "depth": "detailed"
-  }
-}
-```
-
-## Context Reconstruction Engine
-
-When calling ANY LLM, we construct:
-
-```
-SYSTEM:
-You are continuing an ongoing engineering task.
-
-GOAL:
-{goal}
-
-PROGRESS:
-{decisions}
-
-PENDING TASKS:
-{open_tasks}
-
-SUMMARY:
-{context_summary}
-
-STYLE:
-Tone: {tone}
-Depth: {depth}
-
-USER INPUT:
-{message}
-
-Remember: You are continuing a conversation, NOT starting fresh.
-```
-
-This ensures the LLM always knows the conversation state, not just raw history.
-
-## Session State (ISOLATED)
-
-Each session has its own isolated state:
-
-```python
-{
-  "session_id": string,
-  "task": string,
-  "model": string,
-  "local_summary": string,
-  "status": "running" | "waiting" | "completed"
-}
-```
-
-## Routing Logic (Policy Engine)
-
-The routing is handled by a centralized `PolicyEngine` which enforces:
-1. Default → Ollama (FREE)
-2. Query length > 100 words → Anthropic
-3. Query length > 500 words or "complex" → OpenAI
-4. Automatic fallback chain: OpenAI → Anthropic → Ollama
-
-## Watchdog System
-
-The watchdog detects question patterns in LLM responses and auto-answers them:
-
-- "should I..." → "Yes, proceed"
-- "which framework" → "Use the most popular"
-- "confirm" → "Confirmed, continue"
-
-This keeps AI sessions running continuously without pausing for user confirmation.
-
-## Environment Variables
-
-```env
-# OpenAI
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-3.5-turbo
-
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-3-haiku-20240307
-
-# Ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=mistral
-
-# Redis
-REDIS_URL=redis://localhost:6379
-```
-
-## Example Session
-
-```
-==================================================
-  AI Orchestra V3 - Multi-Session Orchestrator
-  ONE AI brain, MANY parallel processes
-==================================================
-
-Commands: /new, /sessions, /msg, /switch, /state, /run, /exit
-
-You: /new "Build a todo API"
-
-[Created]: Session a1b2c3d4 - Build a todo API
-
-You [a1b2c3d]: What endpoints do I need?
-
-[Session a1b2c3d4]: What endpoints do I need?
-
-[ollama]: For a todo API, you'll need:
-
-1. GET /todos - List all todos
-2. POST /todos - Create a new todo
-3. GET /todos/{id} - Get single todo
-4. PUT /todos/{id} - Update todo
-5. DELETE /todos/{id} - Delete todo
-
-/switch a1b2c3d4 openai
-
-[Switched]: Session a1b2c3d4 to openai
-
-/state
-
-=== Global State ===
-Total sessions: 1
-Running: 1
-Conversation: Goal: Build a todo API | Intent: help request | Style: helpful/standard
-```
-
-## Requirements
-
-- Python 3.11+
-- fastapi, uvicorn, httpx, pydantic
-- redis (optional, falls back to in-memory)
-- faiss-cpu (optional, falls back to in-memory)
-- sentence-transformers (optional)
-
-## System Feel
-
-The system should feel like:
-- → ONE AI brain
-- → MANY parallel thinking processes
-- → ZERO interruption
-- → FULL control
-
-## License
-
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
