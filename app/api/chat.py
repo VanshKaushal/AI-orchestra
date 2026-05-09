@@ -24,12 +24,16 @@ class ChatResponseExact(BaseModel):
     session_id: str
     message_id: str
 
-@router.post("/chat", response_model=ChatResponseExact)
+@router.post("/chat")
 async def chat(request: ChatRequestExact):
     """Chat endpoint for AI Orchestra (Exact Match)"""
     try:
         from app.core.multi_session_orchestrator import multi_session_orchestrator
-        result = await multi_session_orchestrator.send_message(request.session_id, request.message)
+        result = await multi_session_orchestrator.send_message(
+            request.session_id, 
+            request.message,
+            provider_override=request.provider
+        )
         
         # TYPE SAFETY FIX
         if not isinstance(result, dict):

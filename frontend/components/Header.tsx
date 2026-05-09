@@ -1,6 +1,7 @@
+"use client";
+
 import { useStore } from "../store/useStore";
-import { BrainCircuit, PanelRightClose, PanelRightOpen, HeartPulse, Settings, User } from "lucide-react";
-import ModelSwitcher from "./ModelSwitcher";
+import { Brain, Settings, User, Activity, Search, Command } from "lucide-react";
 import Link from "next/link";
 
 interface HeaderProps {
@@ -11,56 +12,31 @@ interface HeaderProps {
 }
 
 export default function Header({ rightPanelOpen, setRightPanelOpen, activePanel, setActivePanel }: HeaderProps) {
-  const { activeSessionId } = useStore();
-
   return (
-    <header className="h-[60px] bg-[#0a0a0a] flex items-center justify-between px-6 shrink-0 z-50 w-full relative border-b border-zinc-800/50">
-      <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-100">
-          <BrainCircuit size={18} />
+    <header className="p-6 flex items-center justify-between pointer-events-auto w-full">
+      <div className="flex items-center gap-4">
+        <div className="glass-panel px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3">
+          <Brain size={16} className="text-cyan-500" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Orchestra OS</span>
         </div>
-        <h1 className="text-zinc-100 font-semibold text-[15px] tracking-wide">
-          Orchestra <span className="text-zinc-500 font-normal">OS</span>
-        </h1>
-      </Link>
+      </div>
 
-      <div className="flex items-center gap-3 text-sm">
-        {activeSessionId && <ModelSwitcher />}
-
+      <div className="flex items-center gap-4">
+        <div className="glass-panel px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 focus-within:border-white/20 transition-colors">
+          <Search size={14} className="text-zinc-500" />
+          <input 
+            placeholder="Search semantic memory..." 
+            className="bg-transparent border-none focus:ring-0 outline-none text-xs w-48 text-zinc-300 placeholder:text-zinc-600"
+          />
+          <kbd className="text-[8px] bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-500">⌘K</kbd>
+        </div>
+        
         <button 
-          onClick={() => setActivePanel?.("status")}
-          className="flex items-center gap-2 bg-zinc-900 text-zinc-400 hover:text-emerald-400 px-3 py-1.5 text-xs font-medium rounded-md transition-all border border-zinc-800 hover:border-emerald-500/30"
-          title="Check Backend Health"
+          onClick={() => setActivePanel?.("state")}
+          className="glass-panel p-2.5 rounded-xl border border-white/10 text-zinc-400 hover:text-white transition-all active:scale-95"
         >
-          <HeartPulse size={14} />
-          <span>Status</span>
+          <Activity size={18} />
         </button>
-
-        <button 
-          onClick={() => setActivePanel?.("settings")}
-          className="text-zinc-400 hover:text-zinc-100 transition-colors p-2 hover:bg-zinc-800/80 rounded-lg active:scale-95"
-          title="Settings"
-        >
-          <Settings size={18} />
-        </button>
-
-        <button 
-          onClick={() => setActivePanel?.("profile")}
-          className="text-zinc-400 hover:text-zinc-100 transition-colors p-2 hover:bg-zinc-800/80 rounded-lg active:scale-95"
-          title="Profile"
-        >
-          <User size={18} />
-        </button>
-
-        {setRightPanelOpen && (
-          <button 
-            onClick={() => setRightPanelOpen(!rightPanelOpen)}
-            className="text-zinc-400 hover:text-zinc-100 transition-colors p-2 hover:bg-zinc-800/80 rounded-lg active:scale-95"
-            title="Toggle Right Panel"
-          >
-            {rightPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
-          </button>
-        )}
       </div>
     </header>
   );

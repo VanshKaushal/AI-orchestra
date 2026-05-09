@@ -9,9 +9,7 @@ class UsageTracker:
 
     def __init__(self):
         self.stats: Dict[LLMProvider, UsageStats] = {
-            LLMProvider.OPENAI: UsageStats(provider=LLMProvider.OPENAI),
-            LLMProvider.ANTHROPIC: UsageStats(provider=LLMProvider.ANTHROPIC),
-            LLMProvider.OLLAMA: UsageStats(provider=LLMProvider.OLLAMA)
+            p: UsageStats(provider=p) for p in LLMProvider
         }
 
     def record_success(self, provider: LLMProvider, tokens_used: int, cost: float) -> None:

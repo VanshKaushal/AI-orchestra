@@ -40,6 +40,11 @@ const GraphCanvas3D = dynamic(
   }
 );
 
+const GraphCanvas = dynamic(
+  () => import('../../components/GraphCanvas'),
+  { ssr: false }
+);
+
 const BACKEND_URL = BASE_URL;
 
 export default function GraphPage() {
@@ -48,6 +53,8 @@ export default function GraphPage() {
     sessions, 
     graphMode, 
     setGraphMode, 
+    graphType,
+    setGraphType,
     graphSettings, 
     updateGraphSettings 
   } = useStore();
@@ -199,6 +206,21 @@ export default function GraphPage() {
               ))}
             </div>
 
+            <div className="hidden md:flex items-center gap-1 p-1 bg-slate-950/50 rounded-xl border border-white/5">
+              {[
+                { id: 'obsidian', label: 'Obsidian', icon: Share2 },
+                { id: 'tree', label: 'Tree', icon: Activity }
+              ].map(type => (
+                <button 
+                  key={type.id}
+                  onClick={() => setGraphType(type.id as any)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all ${graphType === type.id ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  <type.icon size={12} /> {type.label.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
             <div className="hidden md:flex flex-1 items-center bg-slate-950/30 rounded-xl px-3 border border-white/5">
               <Search size={14} className="text-slate-500" />
               <input 
@@ -231,16 +253,27 @@ export default function GraphPage() {
 
           {/* GRAPH RENDERING ENGINE */}
           <div className="flex-1 relative">
-            <GraphCanvas3D 
-              nodes={filteredNodes} 
-              edges={filteredEdges}
-              clusters={clusters}
-              zoom={1}
-              onNodeClick={(node) => {
-                setSelectedNode(node);
-                if (window.innerWidth < 1024) setIsSidebarOpen(true);
-              }}
-            />
+            {graphType === 'obsidian' ? (
+              <GraphCanvas3D 
+                nodes={filteredNodes} 
+                edges={filteredEdges}
+                clusters={clusters}
+                zoom={1}
+                onNodeClick={(node) => {
+                  setSelectedNode(node);
+                  if (window.innerWidth < 1024) setIsSidebarOpen(true);
+                }}
+              />
+            ) : (
+              <GraphCanvas 
+                nodes={filteredNodes} 
+                edges={filteredEdges}
+                onNodeClick={(event, node) => {
+                  setSelectedNode(node);
+                  if (window.innerWidth < 1024) setIsSidebarOpen(true);
+                }}
+              />
+            )}
 
             {/* LIVE ANALYTICS HUD */}
             <div className={`

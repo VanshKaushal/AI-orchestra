@@ -31,8 +31,13 @@ export interface AppState {
   
   addWatchdogLog: (log: WatchdogLog) => void;
   
+  // Navigation State
+  viewMode: 'chat' | 'graph';
+  setViewMode: (mode: 'chat' | 'graph') => void;
+
   // Graph State
   graphMode: 'session' | 'global' | 'insight' | 'timeline';
+  graphType: 'obsidian' | 'tree';
   graphSettings: {
     showLabels: boolean;
     showEdges: boolean;
@@ -41,6 +46,7 @@ export interface AppState {
     semanticStrength: number;
   };
   setGraphMode: (mode: 'session' | 'global' | 'insight' | 'timeline') => void;
+  setGraphType: (type: 'obsidian' | 'tree') => void;
   updateGraphSettings: (settings: Partial<AppState['graphSettings']>) => void;
 }
 
@@ -134,8 +140,13 @@ export const useStore = create<AppState>((set) => ({
     watchdogLogs: [log, ...state.watchdogLogs].slice(0, 100) // keep last 100 logs
   })),
 
+  // Navigation
+  viewMode: 'chat',
+  setViewMode: (mode) => set({ viewMode: mode }),
+
   // Graph State Initializers
   graphMode: 'session',
+  graphType: 'obsidian',
   graphSettings: {
     showLabels: true,
     showEdges: true,
@@ -144,6 +155,7 @@ export const useStore = create<AppState>((set) => ({
     semanticStrength: 0.5,
   },
   setGraphMode: (mode) => set({ graphMode: mode }),
+  setGraphType: (type) => set({ graphType: type }),
   updateGraphSettings: (settings) => set((state) => ({
     graphSettings: { ...state.graphSettings, ...settings }
   })),

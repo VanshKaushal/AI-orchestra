@@ -1,124 +1,151 @@
 "use client";
 
 import { useState, KeyboardEvent, useRef, useEffect } from "react";
-import { ArrowUp, Paperclip } from "lucide-react";
-import { useChat } from "../hooks/useChat";
 import { useStore } from "../store/useStore";
-import { uploadFile } from "../services/api";
+import { sendMessage, sendSessionMessage } from "../services/api";
+import { Send, Zap, Cpu, Sparkles, Command, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function InputBox() {
-  const [content, setContent] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const { sendMessage } = useChat();
-  const { activeSessionId } = useStore();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const sendingRef = useRef(false);
+  const [input, setInput] = useState("");
+  const { activeSessionId, sessions, currentModels, switchModel, addMessage, setSessionStatus } = useStore();
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const models = ["OpenAI", "Claude", "Gemini", "Gemma", "Ollama"];
+  const currentModel = activeSessionId ? currentModels[activeSessionId] || "OpenAI" : "OpenAI";
 
   const handleSend = async () => {
-    if (!(content || "").trim() || !activeSessionId || isSending || sendingRef.current) return;
-    
-    setIsSending(true);
-    sendingRef.current = true;
-    
-    try {
-      await sendMessage(content);
-      setContent("");
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
-    } finally {
-      setIsSending(false);
-      sendingRef.current = false;
-    }
-  };
+    if (!input.trim() || !activeSessionId) return;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const formData = new FormData();
-    formData.append("file", file);
-    
+    const userMessage: any = {
+      id: `msg-${Date.now()}`,
+      role: "user",
+      content: input,
+      timestamp: Date.now(),
+    };
+
+    addMessage(activeSessionId, userMessage);
+    setInput("");
+    setSessionStatus(activeSessionId, "running");
+
     try {
-      const response = await uploadFile(formData);
+      const res = await sendSessionMessage(activeSessionId, input);
       
-      if (response.success && response.data) {
-        console.log("File uploaded successfully:", response.data);
-        // Optionally add a system message to the chat
+      if (res.success && res.data) {
+        const assistantMsg: any = {
+          id: res.data.message_id || `assistant-${Date.now()}`,
+          role: "assistant",
+          content: res.data.response || res.data.content, 
+          model: res.data.provider || currentModel,
+          tokens_used: res.data.tokens_used || 0,
+          cost: res.data.cost || 0,
+          timestamp: Date.now(),
+        };
+        addMessage(activeSessionId, assistantMsg);
       } else {
-        console.error("Upload failed:", response.error);
-        alert(`Upload failed: ${response.error || "Unknown error"}`);
+        // Show error as a message
+        const errorMsg: any = {
+          id: `error-${Date.now()}`,
+          role: "assistant",
+          content: `Error: ${res.error || "Failed to get response from AI Orchestra"}`,
+          model: "System",
+          timestamp: Date.now(),
+        };
+        addMessage(activeSessionId, errorMsg);
       }
-    } catch (error) {
-      console.error("File upload error:", error);
-    }
-    
-    // Reset file input
-    if (fileRef.current) {
-      fileRef.current.value = "";
+    } catch (error: any) {
+      console.error("Failed to send message:", error);
+      const errorMsg: any = {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: `Connection Error: ${error.message || "Could not reach the backend server"}`,
+        model: "System",
+        timestamp: Date.now(),
+      };
+      addMessage(activeSessionId, errorMsg);
+    } finally {
+      setSessionStatus(activeSessionId, "idle");
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const adjustHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-    }
-  };
-
-  useEffect(() => {
-    adjustHeight();
-  }, [content]);
-
-  if (!activeSessionId) return null;
-
   return (
-    <div className="sticky bottom-0 bg-[#0a0a0a] px-6 py-4 pb-8 shrink-0">
-      <div className="max-w-3xl mx-auto flex flex-col items-center">
-        <div className="w-full relative flex items-end gap-2 bg-zinc-800 focus-within:bg-zinc-800 rounded-3xl px-4 py-2 transition-all">
+    <div className="w-full flex flex-col gap-4">
+      {/* Model Selection - Premium Segmented Control */}
+      <div className="flex items-center justify-center">
+        <div className="flex items-center p-1.5 bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-2xl">
+          {models.map((model) => (
+            <button
+              key={model}
+              onClick={() => activeSessionId && switchModel(activeSessionId, model)}
+              className={`relative px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500 ${
+                currentModel === model 
+                  ? 'text-cyan-400' 
+                  : 'text-zinc-600 hover:text-zinc-400'
+              }`}
+            >
+              {currentModel === model && (
+                <motion.div 
+                  layoutId="activeModelPill"
+                  className="absolute inset-0 bg-white/5 shadow-[0_0_15px_rgba(255,255,255,0.03)] rounded-xl"
+                  transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-2">
+                {model === "Gemma" && <Zap size={10} className={currentModel === model ? "text-cyan-400" : "text-zinc-700"} />}
+                {model}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative group">
+        {/* Glow effect on hover/focus */}
+        <div className={`absolute -inset-0.5 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-[2.2rem] blur-xl opacity-0 transition duration-1000 group-hover:opacity-100 ${isFocused ? 'opacity-100' : ''}`} />
+        
+        <div className={`relative flex items-center gap-4 bg-[#0a0a0b]/80 backdrop-blur-2xl border ${isFocused ? 'border-cyan-500/30' : 'border-white/10'} rounded-[1.5rem] px-7 py-3.5 transition-all duration-500`}>
+          <div className="shrink-0">
+            <Cpu size={20} className={isFocused ? "text-cyan-500" : "text-zinc-600"} />
+          </div>
+          
           <input
-            type="file"
-            ref={fileRef}
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-          <button 
-            onClick={() => fileRef.current?.click()}
-            className="shrink-0 p-2 text-zinc-400 hover:text-zinc-100 rounded-full transition-colors mb-0.5"
-            title="Attach file"
-          >
-            <Paperclip size={20} />
-          </button>
-          
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message Orchestra..."
-            className="w-full bg-transparent border-none focus:outline-none focus:ring-0 resize-none text-zinc-100 text-[15px] max-h-[200px] py-2.5 pb-3 px-1 leading-relaxed"
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Instruct the Cognitive Orchestra..."
+            className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-base text-zinc-100 placeholder:text-zinc-800 font-medium tracking-wide"
           />
-          
-          <button 
-            onClick={handleSend}
-            disabled={!(content || "").trim() || isSending}
-            className="shrink-0 p-2 bg-white text-zinc-900 rounded-full transition-all disabled:opacity-30 disabled:bg-zinc-600 disabled:text-zinc-400 mb-1"
-          >
-            <ArrowUp size={18} className="stroke-[2.5]" />
-          </button>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || !activeSessionId}
+              className={`group/btn flex items-center justify-center w-12 h-12 rounded-full transition-all duration-500 ${
+                input.trim() 
+                  ? 'bg-zinc-100 text-zinc-950 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.1)]' 
+                  : 'bg-zinc-900 text-zinc-700 opacity-50'
+              }`}
+            >
+              <ArrowRight size={22} className="transition-transform group-hover/btn:translate-x-0.5" />
+            </button>
+          </div>
         </div>
-        <div className="text-[11px] text-zinc-500 mt-3 text-center">
-          Orchestra OS can make mistakes. Consider verifying important information.
-        </div>
+      </div>
+      
+      <div className="flex justify-center">
+        <span className="text-[9px] font-black text-zinc-800 uppercase tracking-[0.4em]">Neural Integration: Active</span>
       </div>
     </div>
   );

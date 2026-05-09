@@ -18,6 +18,7 @@ class LLMProvider(str, Enum):
     OLLAMA = "ollama"
     GEMINI = "gemini"
     GROK = "grok"
+    OPENROUTER = "openrouter"
 
 
 class Message(BaseModel):

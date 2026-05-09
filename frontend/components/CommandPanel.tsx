@@ -1,44 +1,35 @@
-import { Terminal, Rocket, CheckSquare } from "lucide-react";
+"use client";
+
+import { Terminal, Rocket, CheckSquare, Zap, Shield } from "lucide-react";
 import { runCommand } from "../services/api";
-import toast from "react-hot-toast";
 
 export default function CommandPanel() {
   const handleCommand = async (cmd: string) => {
     const res = await runCommand(cmd);
     if (res.success && res.data) {
       console.log("Command Success:", res.data);
-      alert(res.data.output || "Command executed successfully");
     } else {
       console.error("Command Failed:", res.error);
-      alert("Failed to execute " + cmd + ": " + (res.error || "Unknown error"));
     }
-
-
   };
 
   return (
-    <div className="p-4 bg-zinc-900 shrink-0">
-      <div className="flex justify-around items-center gap-3">
+    <div className="p-6 bg-black/40 border-t border-white/5">
+      <div className="grid grid-cols-2 gap-3">
         <button 
-          onClick={() => handleCommand("test")}
-          className="flex-1 flex flex-col items-center justify-center py-3 rounded-xl bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 text-zinc-300 transition-all shadow-sm hover:shadow active:scale-95"
+          onClick={() => handleCommand("diagnose")}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all active:scale-95 group"
         >
-          <Terminal size={18} className="mb-2 text-blue-400" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Run Test</span>
+          <Shield size={14} className="group-hover:text-cyan-500 transition-colors" />
+          <span className="text-[10px] font-black uppercase tracking-widest">Diagnose</span>
         </button>
+
         <button 
-          onClick={() => handleCommand("deploy")}
-          className="flex-1 flex flex-col items-center justify-center py-3 rounded-xl bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-all shadow-md hover:shadow-lg active:scale-95"
+          onClick={() => handleCommand("optimize")}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 text-cyan-500 transition-all active:scale-95"
         >
-          <Rocket size={18} className="mb-2 text-white" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Deploy</span>
-        </button>
-        <button 
-          onClick={() => handleCommand("lint")}
-          className="flex-1 flex flex-col items-center justify-center py-3 rounded-xl bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 text-zinc-300 transition-all shadow-sm hover:shadow active:scale-95"
-        >
-          <CheckSquare size={18} className="mb-2 text-emerald-500" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Lint</span>
+          <Zap size={14} fill="currentColor" />
+          <span className="text-[10px] font-black uppercase tracking-widest">Optimize</span>
         </button>
       </div>
     </div>

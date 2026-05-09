@@ -1,4 +1,4 @@
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 console.log("API URL:", BASE_URL);
 
@@ -75,6 +75,12 @@ export async function getSessions() {
   return request<any[]>("/sessions");
 }
 
+export async function deleteSession(sessionId: string) {
+  return request<any>(`/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+}
+
 // CHAT API
 export async function sendMessage(payload: {
   session_id: string;
@@ -84,6 +90,12 @@ export async function sendMessage(payload: {
   return request<any>("/chat", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function sendSessionMessage(sessionId: string, message: string) {
+  return request<any>(`/sessions/${sessionId}/message?message=${encodeURIComponent(message)}`, {
+    method: "POST",
   });
 }
 

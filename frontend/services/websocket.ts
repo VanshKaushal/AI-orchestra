@@ -1,3 +1,7 @@
+
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000";
+export { WS_BASE_URL };
+
 type EventHandler = (payload: any) => void;
 
 class WebSocketService {
@@ -5,7 +9,7 @@ class WebSocketService {
   private currentUrl: string | null = null;
   private handlers: Record<string, EventHandler[]> = {};
 
-  public connect(url: string) {
+  public connect(url: string = WS_BASE_URL) {
     if (this.ws && this.currentUrl === url && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
@@ -72,6 +76,4 @@ class WebSocketService {
 }
 
 
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000";
 export const wsService = new WebSocketService();
-export { WS_BASE_URL };

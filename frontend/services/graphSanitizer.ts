@@ -2,7 +2,7 @@
  * Step 2: BUILD SANITIZATION LAYER (MANDATORY)
  */
 
-import { GraphData, GraphNode } from '../types/graph';
+import { GraphData, GraphNode, GraphEdge } from '../types/graph';
 
 export function sanitizeGraph(graph: any): GraphData {
   if (!graph) return { nodes: [], edges: [] };

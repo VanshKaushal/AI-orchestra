@@ -6,8 +6,10 @@ export interface Message {
   role: Role;
   content: string;
   timestamp: number;
-  modelUsed?: string;
+  model?: string;
   isSending?: boolean;
+  tokens_used?: number;
+  cost?: number;
 }
 
 export interface Session {

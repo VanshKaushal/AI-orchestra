@@ -14,7 +14,10 @@ export default function ChatWindow() {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [sessionMessages]);
 
@@ -70,8 +73,15 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-4 bg-[#0a0a0a]" ref={scrollRef}>
-      <div className="max-w-3xl mx-auto space-y-8 pb-10">
+    <div 
+      className="flex-1 overflow-y-auto px-6 py-4 bg-[#0a0a0a] os-scrollbar" 
+      ref={scrollRef}
+      style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(255,255,255,0.1) transparent'
+      }}
+    >
+      <div className="max-w-4xl mx-auto space-y-8 pb-40">
         <AnimatePresence initial={false}>
           {sessionMessages.map((msg, idx) => (
             <motion.div

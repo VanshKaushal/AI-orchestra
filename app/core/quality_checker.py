@@ -76,16 +76,16 @@ class QualityChecker:
                 score -= 0.25
                 break
         
-        if "?" in response and len(response) < 50:
+        if "?" in response and len(response) < 30: # Reduced threshold
             issues.append("questionable_response")
-            score -= 0.2
+            score -= 0.1 # Reduced penalty
         
         words = response.split()
-        if len(set(words)) / max(len(words), 1) < 0.3:
+        if len(set(words)) / max(len(words), 1) < 0.2: # Reduced threshold
             issues.append("low_diversity")
             score -= 0.2
         
-        is_weak = score < 0.5 or len(issues) >= 2
+        is_weak = score < 0.4 or len(issues) >= 3 # Less aggressive
         
         if is_weak:
             logger.warning(f"Weak response detected: {issues}")

@@ -25,15 +25,11 @@ class SwitchEngine:
         self.max_failures = max_failures
         
         self._failure_counts: Dict[LLMProvider, int] = {
-            LLMProvider.OPENAI: 0,
-            LLMProvider.ANTHROPIC: 0,
-            LLMProvider.OLLAMA: 0
+            p: 0 for p in LLMProvider
         }
         
         self._failure_times: Dict[LLMProvider, List[datetime]] = {
-            LLMProvider.OPENAI: [],
-            LLMProvider.ANTHROPIC: [],
-            LLMProvider.OLLAMA: []
+            p: [] for p in LLMProvider
         }
         
         self._manual_override: Optional[LLMProvider] = None

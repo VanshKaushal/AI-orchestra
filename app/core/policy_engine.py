@@ -11,7 +11,8 @@ class PolicyEngine:
             LLMProvider.ANTHROPIC: 1024,
             LLMProvider.OLLAMA: 2048,
             LLMProvider.GEMINI: 2048,
-            LLMProvider.GROK: 2048
+            LLMProvider.GROK: 2048,
+            LLMProvider.OPENROUTER: 2048
         }
 
         self.fallback_priority: List[LLMProvider] = [
@@ -19,6 +20,7 @@ class PolicyEngine:
             LLMProvider.ANTHROPIC,
             LLMProvider.GEMINI,
             LLMProvider.GROK,
+            LLMProvider.OPENROUTER,
             LLMProvider.OLLAMA
         ]
 

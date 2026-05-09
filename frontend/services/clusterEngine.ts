@@ -2,7 +2,7 @@
  * Step 2: AI-Powered Clustering
  */
 
-import { Node, Graph } from './graphProcessor';
+import { GraphNode as Node, GraphData as Graph } from '../types/graph';
 
 export interface Cluster {
   id: string;

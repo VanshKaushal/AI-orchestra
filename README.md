@@ -5,19 +5,21 @@
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-green)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AI Orchestra Desktop** is a high-performance, multi-LLM orchestration environment. It transforms complex engineering tasks into a streamlined desktop experience where you can manage parallel AI sessions, visualize project intelligence in 3D, and switch between models (Ollama, GPT, Claude, Gemini, Grok) with zero context loss.
+**AI Orchestra Desktop** is a high-performance, multi-LLM orchestration environment. It transforms complex engineering tasks into a streamlined desktop experience where you can manage parallel AI sessions, visualize project intelligence in a **Living 3D Memory Cortex**, and trace the **Universal Causal Lineage** of every AI reasoning chain with absolute precision.
 
 ---
 
 ## ✨ Key Features
 
 - 🖥️ **Native Desktop Experience** - High-performance wrapper powered by Electron.
+- 🧠 **Living AI Memory Cortex** - A production-grade 3D visualization engine mapping your AI's collective intelligence.
+- ⛓️ **Universal Causal Lineage** - Explicitly trace the path from **Session** ➔ **Task** ➔ **LLM** ➔ **Output**.
+- 🔭 **Deep Zoom Navigation** - Microscopic interaction with nodes and macroscopic "God View" of the entire network.
+- 🎯 **Fidelity Session Selector** - Granular control to isolate or combine specific cognitive threads in the graph.
 - 🚀 **One-Command Setup** - Unified project lifecycle with a single `npm run dev` command.
-- 🔍 **Real-Time State Explorer** - Live 3D dashboard visualizing session goals and task progress.
-- 🧠 **Dual-Layer Memory** - Redis-backed short-term memory and FAISS-powered long-term vector memory.
-- ⚡ **Seamless Model Switching** - Hot-swap between Local (Ollama) and Cloud (OpenAI/Anthropic/Google) models.
+- ⚡ **Seamless Model Switching** - Hot-swap between Local (Ollama) and Cloud (OpenAI/Anthropic/Gemini) models.
 - 🐕 **Watchdog Automation** - Background agents that auto-resolve low-level LLM questions.
-- 🛠️ **Hardened API** - Production-grade FastAPI backend with robust error handling and WebSocket isolation.
+- 🎨 **Premium Aesthetics** - High-contrast solid shaders, neon pointers, and glassmorphic HUD interfaces.
 
 ---
 
@@ -38,7 +40,25 @@ graph TD
     UI -->|REST/WS| API
     API -->|Memory| Redis["Redis (Short-term)"]
     API -->|Vector| FAISS["FAISS (Long-term)"]
+    API -->|Synthesize| Graph["3D Cognitive Cortex (GraphRAG)"]
 ```
+
+---
+
+## 🧠 Cognitive Graph Topology
+
+The "Living AI Memory Cortex" is a high-fidelity tracing engine that visualizes the **Universal Causal Lineage** of your AI orchestration.
+
+### 🎨 Semantic Color Code
+- 🟠 **Task (Orange)**: The intent or objective (e.g., User Prompt).
+- 🟡 **LLM (Gold)**: The intelligence hub (e.g., GPT-4, Claude 3).
+- 🟢 **Output (Green)**: The result or synthesized knowledge.
+- 🔵 **Session (Cyan)**: The conversational context container.
+- 🔴 **Error (Red)**: Critical system or reasoning failures.
+
+### ⛓️ Universal Causal Chain
+The system enforces a rigid sequential relationship to ensure logical tracing:
+**Session** ➔ **Task** ➔ **LLM Hub** ➔ **Final Output**
 
 ---
 

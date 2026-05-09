@@ -84,7 +84,15 @@ class MultiSessionOrchestrator:
         session_id = str(uuid.uuid4())[:8]
         
         try:
-            provider = LLMProvider(model)
+            # Map frontend names to provider enum
+            model_map = {
+                "OpenAI": LLMProvider.OPENAI,
+                "Claude": LLMProvider.ANTHROPIC,
+                "Gemini": LLMProvider.GEMINI,
+                "Gemma": LLMProvider.OPENROUTER,
+                "Ollama": LLMProvider.OLLAMA
+            }
+            provider = model_map.get(model, LLMProvider(model.lower() if hasattr(model, 'lower') else model))
         except ValueError:
             provider = LLMProvider.OLLAMA
         
@@ -129,13 +137,39 @@ class MultiSessionOrchestrator:
         self,
         session_id: str,
         message_text: str,
-        use_watchdog: bool = True
+        use_watchdog: bool = True,
+        provider_override: Optional[str] = None
     ) -> Dict[str, Any]:
         """Send a message to a session and get response"""
         session = self.sessions.get(session_id)
         if not session:
             return {"error": "Session not found"}
         
+        # If provider override is given, update session model
+        if provider_override:
+            try:
+                # Normalize provider name
+                p_name = str(provider_override).strip().title()
+                
+                model_map = {
+                    "Openai": LLMProvider.OPENAI,
+                    "Claude": LLMProvider.ANTHROPIC,
+                    "Gemini": LLMProvider.GEMINI,
+                    "Gemma": LLMProvider.OPENROUTER,
+                    "Openrouter": LLMProvider.OPENROUTER,
+                    "Ollama": LLMProvider.OLLAMA
+                }
+                
+                provider = model_map.get(p_name)
+                if not provider:
+                    # Try lowercase match as fallback
+                    provider = LLMProvider(provider_override.lower())
+                
+                session.model = provider
+                logger.info(f"Session {session_id} model updated to {session.model.value} (from {provider_override})")
+            except Exception as e:
+                logger.warning(f"Failed to override provider '{provider_override}': {e}")
+
         session.status = "running"
         
         # Phase 2: Update State Explorer (Silent Hook)
@@ -260,7 +294,14 @@ class MultiSessionOrchestrator:
             return False
         
         try:
-            session.model = LLMProvider(model)
+            model_map = {
+                "OpenAI": LLMProvider.OPENAI,
+                "Claude": LLMProvider.ANTHROPIC,
+                "Gemini": LLMProvider.GEMINI,
+                "Gemma": LLMProvider.OPENROUTER,
+                "Ollama": LLMProvider.OLLAMA
+            }
+            session.model = model_map.get(model, LLMProvider(model.lower()))
             logger.info(f"Session {session_id} switched to {model}")
             asyncio.create_task(ws_manager.broadcast({
                 "type": "model_switched",

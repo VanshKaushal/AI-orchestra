@@ -9,6 +9,7 @@ from app.adapters.anthropic_adapter import AnthropicAdapter
 from app.adapters.ollama_adapter import OllamaAdapter
 from app.adapters.gemini import GeminiAdapter
 from app.adapters.grok import GrokAdapter
+from app.adapters.openrouter_adapter import OpenRouterAdapter
 from app.core.router import Router
 from app.core.policy_engine import PolicyEngine
 from app.core.context_builder import ContextBuilder
@@ -37,7 +38,8 @@ class Orchestrator:
             LLMProvider.ANTHROPIC: AnthropicAdapter(),
             LLMProvider.OLLAMA: OllamaAdapter(),
             LLMProvider.GEMINI: GeminiAdapter(),
-            LLMProvider.GROK: GrokAdapter()
+            LLMProvider.GROK: GrokAdapter(),
+            LLMProvider.OPENROUTER: OpenRouterAdapter()
         }
         
         self.router = Router()
@@ -73,7 +75,7 @@ class Orchestrator:
             state_context,
             user_input,
             original_provider=selected,
-            failed_provider=request.force_provider,
+            failed_provider=None,
             user_id=user_id
         )
         
@@ -105,13 +107,25 @@ class Orchestrator:
     ) -> tuple[LLMResponse, LLMProvider, Optional[str]]:
         """Generate response with automatic switching on errors or quality issues"""
         
-        provider = self.router.get_fallback(failed_provider) if failed_provider else original_provider
+        # Start with the original provider unless we're explicitly told it failed
+        provider = original_provider
+        if failed_provider:
+            provider = self.router.get_fallback(failed_provider)
+
         tried_providers = set()
         switch_reason = None
         
-        while provider and provider not in tried_providers:
+        while provider:
+            if provider in tried_providers:
+                # If we've already tried this one, get the next untried provider from priority list
+                all_providers = self.router.policy.fallback_priority
+                next_untried = next((p for p in all_providers if p not in tried_providers), None)
+                if not next_untried:
+                    break
+                provider = next_untried
+                continue
+
             tried_providers.add(provider)
-            
             logger.info(f"Trying provider: {provider.value}")
             
             adapter = self.adapters.get(provider)
@@ -126,7 +140,8 @@ class Orchestrator:
                 if result.status == "success":
                     quality = self.quality_checker.check(result.response)
                     
-                    if quality.is_weak and provider != LLMProvider.OLLAMA:
+                    # Only escalate if we're NOT using the provider the user explicitly chose
+                    if quality.is_weak and provider != LLMProvider.OLLAMA and provider != original_provider:
                         logger.warning(f"Weak response from {provider.value}, escalating...")
                         switch_reason = f"quality_check_failed"
                         self.usage_tracker.record_failure(provider)
@@ -150,7 +165,8 @@ class Orchestrator:
             
             provider = self.router.get_fallback(provider)
         
-        error_log = f"[v1.1] All LLM providers failed. Last tried: {provider.value if provider else 'unknown'}. Original request: {original_provider.value}. Error: {switch_reason or 'No specific error'}"
+        # If we reached here, ALL providers failed
+        error_log = f"CRITICAL: All LLM providers failed or were rate-limited. Tried: {', '.join([p.value for p in tried_providers])}. Please check your API keys or try again later."
         return (
             LLMResponse(
                 response=error_log,

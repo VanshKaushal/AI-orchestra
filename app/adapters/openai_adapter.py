@@ -14,12 +14,21 @@ class OpenAIAdapter(BaseAdapter):
         self.provider = LLMProvider.OPENAI
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
-        self.base_url = "https://api.openai.com/v1"
-        self.max_tokens = 2000
-
-        # Pricing per 1K tokens (approximate)
-        self.input_price = 0.0015  # $1.5 per 1M tokens = $0.0015 per 1K
-        self.output_price = 0.002
+        
+        # Auto-detect OpenRouter keys used in OpenAI slot
+        if self.api_key.startswith("sk-or-v1-"):
+            self.base_url = "https://openrouter.ai/api/v1"
+            logger.info("OpenAI Adapter: OpenRouter key detected, using OpenRouter base URL")
+            if self.model.startswith("gpt-"):
+                # If they used an OpenRouter key but kept an OpenAI model, 
+                # OpenRouter might still support it, but better to log a warning
+                logger.warning(f"OpenRouter key used with OpenAI model {self.model}")
+        else:
+            self.base_url = "https://api.openai.com/v1"
+            
+        self.max_tokens = 2048
+        self.input_price = 0.015  # Default OpenAI pricing
+        self.output_price = 0.06
 
     async def generate(self, prompt: str, context: Dict[str, Any]) -> LLMResponse:
         """Generate a response using OpenAI API"""
@@ -38,6 +47,11 @@ class OpenAIAdapter(BaseAdapter):
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             }
+            
+            # Add OpenRouter specific headers if detected
+            if self.api_key.startswith("sk-or-v1-"):
+                headers["HTTP-Referer"] = "https://ai-orchestra.com"
+                headers["X-Title"] = "AI Orchestra"
 
             messages = self._build_messages(context)
 
